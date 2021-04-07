@@ -43,36 +43,36 @@ export enum ASTNodeType {
     DictLiteral,
 }
 
-interface _ASTNode {
+interface _ASTNode_Base {
     type: ASTNodeType;
     source: SourceInfo;
     // children: ASTNode[];
 }
 
-export interface Program extends _ASTNode {
+export interface Program extends _ASTNode_Base {
     type: ASTNodeType.Program;
     declarations: Declaration[];
 }
 
-export interface FileImport extends _ASTNode {
+export interface FileImport extends _ASTNode_Base {
     type: ASTNodeType.FileImport;
     filename: string;
 }
 
-export interface ModuleImport extends _ASTNode {
+export interface ModuleImport extends _ASTNode_Base {
     type: ASTNodeType.ModuleImport;
     filename: string;
     members: Identifier[];
 }
 
-export interface DeclareVariable extends _ASTNode {
+export interface DeclareVariable extends _ASTNode_Base {
     type: ASTNodeType.DeclareVariable;
     variant: 'data' | 'temp';
     name: Identifier;
     value: LiteralExpression;
 }
 
-export interface GroupDefinition extends _ASTNode {
+export interface GroupDefinition extends _ASTNode_Base {
     type: ASTNodeType.GroupDefinition;
     name: Identifier;
     members: GroupableDefinition[];
@@ -82,12 +82,12 @@ interface HasAction {
     statements: Statement[];
 }
 
-export interface EventListenerDefinition extends _ASTNode, HasAction {
+export interface EventListenerDefinition extends _ASTNode_Base, HasAction {
     type: ASTNodeType.EventListenerDefinition;
     event: string;
 }
 
-interface _FunctionLikeDefinition extends _ASTNode, HasAction {
+interface _FunctionLikeDefinition extends _ASTNode_Base, HasAction {
     name: Identifier;
     parameters: Identifier[];
     restParamVariant: 'none' | 'string' | 'list';
@@ -131,13 +131,13 @@ export function isDeclaration(node: ASTNode): node is Declaration {
     }
 }
 
-export interface ForEach extends _ASTNode, HasAction {
+export interface ForEach extends _ASTNode_Base, HasAction {
     type: ASTNodeType.ForEach;
     loopVariable: Identifier;
     collection: Expression;
 }
 
-interface _CheckStatement extends _ASTNode {
+interface _CheckStatement extends _ASTNode_Base {
     checkExpression: Expression;
 }
 
@@ -167,42 +167,42 @@ export function isCheckStatement(node: ASTNode): node is CheckStatement {
     }
 }
 
-export interface Send extends _ASTNode {
+export interface Send extends _ASTNode_Base {
     type: ASTNodeType.Send;
     message: Expression;
 }
 
-export interface React extends _ASTNode {
+export interface React extends _ASTNode_Base {
     type: ASTNodeType.React;
     targetMessage: Expression | undefined;
     reaction: Expression;
 }
 
-export interface Set extends _ASTNode {
+export interface Set extends _ASTNode_Base {
     type: ASTNodeType.Set;
     variable: OfExpression | Identifier;
     expression: Expression;
 }
 
-export interface Assign extends _ASTNode {
+export interface Assign extends _ASTNode_Base {
     type: ASTNodeType.Assign;
     variable: Identifier;
     value: ValueStatement;
 }
 
-export interface Pick extends _ASTNode {
+export interface Pick extends _ASTNode_Base {
     type: ASTNodeType.Pick;
     distribution: string;
     collection: Expression;
 }
 
-export interface Parse extends _ASTNode {
+export interface Parse extends _ASTNode_Base {
     type: ASTNodeType.Parse;
     parser: string;
     serialized: Expression;
 }
 
-export interface Carry extends _ASTNode {
+export interface Carry extends _ASTNode_Base {
     type: ASTNodeType.Carry;
     expression: Expression;
 }
@@ -234,14 +234,14 @@ export function isStatement(node: ASTNode): node is Statement {
     }
 }
 
-export interface IsExpression extends _ASTNode {
+export interface IsExpression extends _ASTNode_Base {
     type: ASTNodeType.IsExpression;
     isNot: boolean;
     expression: Expression;
     targetType: string;
 }
 
-export interface RelationalExpression extends _ASTNode {
+export interface RelationalExpression extends _ASTNode_Base {
     type: ASTNodeType.RelationalExpression;
     operators: ('==' | '!=' | '<' | '<=' | '>' | '>=')[];
     expressions: Expression[];
@@ -258,38 +258,38 @@ export interface RelationalExpression extends _ASTNode {
 //     }
 // }
 
-export interface BinaryOpExpression extends _ASTNode {
+export interface BinaryOpExpression extends _ASTNode_Base {
     type: ASTNodeType.BinaryOpExpression;
     operator: '+' | '-' | '*' | '/';
     lhs: Expression;
     rhs: Expression;
 }
 
-export interface UnaryOpExpression extends _ASTNode {
+export interface UnaryOpExpression extends _ASTNode_Base {
     type: ASTNodeType.UnaryOpExpression;
     operator: '+' | '-' | 'not';
     expression: Expression;
 }
 
-export interface InvokeExpression extends _ASTNode {
+export interface InvokeExpression extends _ASTNode_Base {
     type: ASTNodeType.InvokeExpression;
     function: Identifier;
     arguments: Expression[];
 }
 
-export interface OfExpression extends _ASTNode {
+export interface OfExpression extends _ASTNode_Base {
     type: ASTNodeType.OfExpression;
     root: Expression;
     /** Dereferenced left to right, as in javascript, like `a.b.c.d` (code would look like `d of c of b of a`) */
     referenceChain: ObjectKey[];
 }
 
-export interface Identifier extends _ASTNode {
+export interface Identifier extends _ASTNode_Base {
     type: ASTNodeType.Identifier;
     name: string;
 }
 
-export interface RawStringLiteral extends _ASTNode {
+export interface RawStringLiteral extends _ASTNode_Base {
     type: ASTNodeType.RawStringLiteral;
     value: string;
 }
@@ -299,7 +299,7 @@ export interface TemplateStringFragment {
     contents: string;
 }
 
-export interface TemplateStringLiteral extends _ASTNode {
+export interface TemplateStringLiteral extends _ASTNode_Base {
     type: ASTNodeType.TemplateStringLiteral;
     fragments: TemplateStringFragment[];
 }
@@ -315,22 +315,22 @@ export function isStringLiteral(node: ASTNode): node is LiteralExpression {
     }
 }
 
-export interface NumberLiteral extends _ASTNode {
+export interface NumberLiteral extends _ASTNode_Base {
     type: ASTNodeType.NumberLiteral;
     value: number;
 }
 
-export interface BooleanLiteral extends _ASTNode {
+export interface BooleanLiteral extends _ASTNode_Base {
     type: ASTNodeType.BooleanLiteral;
     value: boolean;
 }
 
-export interface ListLiteral extends _ASTNode {
+export interface ListLiteral extends _ASTNode_Base {
     type: ASTNodeType.ListLiteral;
     values: Expression[];
 }
 
-export interface DictLiteral extends _ASTNode {
+export interface DictLiteral extends _ASTNode_Base {
     type: ASTNodeType.DictLiteral;
     keys: ObjectKey[];
     values: Expression[];
@@ -371,6 +371,39 @@ export function isExpression(node: ASTNode): node is Expression {
             return false;
     }
 }
+
+function createASTNode<
+    Type extends ASTNodeType,
+    Node extends ASTNode & {type: Type}
+>(
+    this: typeof __ASTNode_prototype,
+    type: Type,
+    source: SourceInfo,
+    node: Omit<Node, 'type' | 'source'>
+) {
+    return {
+        type,
+        source,
+        ...node,
+    };
+}
+
+const __ASTNode_prototype = {
+
+};
+
+export const ASTNode = createASTNode as unknown as {
+    new <
+        Type extends ASTNodeType,
+        Node extends ASTNode & {type: Type}
+    > (
+        type: Type,
+        source: SourceInfo,
+        node: Omit<Node, 'type' | 'source'>
+    ): Node;
+    prototype: typeof __ASTNode_prototype;
+};
+ASTNode.prototype = __ASTNode_prototype
 
 export type ASTNode =
     Program            | FileImport            | ModuleImport       | DeclareVariable |
