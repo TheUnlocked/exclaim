@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "antlr4s": "antlr4ts -visitor -o src/parser/generated -lib grammar/.antlr grammar/Exclaim.g4"
+  },
+  "devDependencies": {
+    "antlr4ts-cli": "^0.5.0-alpha.4",
+    "mocha": "^8.3.2"
+  },
+  "dependencies": {
+    "antlr4ts": "^0.5.0-alpha.4"
+  }
+}

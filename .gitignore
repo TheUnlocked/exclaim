@@ -74,3 +74,7 @@ typings/
 
 # FuseBox cache
 .fusebox/
+
+# Auto-generated antlr files
+grammar/.antlr
+src/parser/generated
