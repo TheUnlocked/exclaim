@@ -18,7 +18,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     }
 
-    private getSourceInfo(ctx: ParserRuleContext) {
+    private getSourceInfo(ctx: ParseTree) {
         return {
             ctx,
             file: this.sourceFile
@@ -318,6 +318,39 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
                     contents: embedded.text.slice(1, embedded.text.length - 1)
                 };
             }
+
+            const escape = x.ESCAPE_SEQUENCE()?.text.slice(1);
+            if (escape) {
+                switch (escape.length) {
+                    case 1:
+                        // Single character
+                        const validEscapes = {
+                            'n': '\n', 't': '\t', 'r': '\r', '\\': '\\',
+                            '{': '{',  '}': '}'
+                        } as {[seq: string]: string};
+
+                        if (escape in validEscapes) {
+                            return {
+                                type: 'text',
+                                contents: validEscapes[escape]
+                            };
+                        }
+
+                        this.errors.push({
+                            type: ErrorType.InvalidEscapeSequence,
+                            source: this.getSourceInfo(x.ESCAPE_SEQUENCE()!),
+                            message: `\\${escape} is not a valid escape sequence`
+                        });
+                        return {
+                            type: 'text',
+                            contents: escape
+                        };
+                    case 3:
+                        // hex
+
+                }
+            }
+            
             return {
                 type: 'text',
                 contents: x.STRING_CONTENTS()!.text

@@ -1,6 +1,6 @@
-import { ParserRuleContext } from "antlr4ts";
+import { ParseTree } from "antlr4ts/tree/ParseTree";
 
 export interface SourceInfo {
     file: string;
-    ctx: ParserRuleContext;
+    ctx: ParseTree;
 }

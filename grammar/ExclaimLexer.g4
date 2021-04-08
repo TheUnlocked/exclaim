@@ -66,11 +66,11 @@ NL: '\n'+;
 WS: [ \t\r]+ -> skip;
 
 mode stringMode;
-fragment LETTER: ~["\\{}];
+fragment LETTER: ~["\\{];
 fragment HEX: [0-9a-fA-F];
-fragment ESCAPE: '\\' . | '\\x' HEX HEX;
+ESCAPE_SEQUENCE: '\\' . | '\\x' HEX HEX;
+STRING_CONTENTS: LETTER+;
 STR_OPEN_JS: '{' -> type(OPEN_JS), pushMode(javascriptMode);
-STRING_CONTENTS: (LETTER | ESCAPE)+;
 CLOSE_STRING: '"' -> popMode;
 
 // Welcome to language embedding hell

@@ -43,7 +43,7 @@ export enum ASTNodeType {
     DictLiteral,
 }
 
-interface _ASTNode_Base {
+interface _ASTNode_Base extends __ASTNode_Prototype {
     type: ASTNodeType;
     source: SourceInfo;
     // children: ASTNode[];
@@ -379,7 +379,7 @@ function createASTNode<
     this: typeof __ASTNode_prototype,
     type: Type,
     source: SourceInfo,
-    node: Omit<Node, 'type' | 'source'>
+    node: Omit<Node, 'type' | 'source' | keyof __ASTNode_Prototype>
 ) {
     return {
         type,
@@ -388,9 +388,22 @@ function createASTNode<
     };
 }
 
-const __ASTNode_prototype = {
+interface __ASTNode_Prototype {
+    readonly children: readonly ASTNode[];
+    walk(walkerFn: (node: ASTNode) => void): void;
+}
 
-};
+const __ASTNode_prototype = {
+    get children() {
+        return getChildren(this);
+    },
+    walk(walkerFn: (node: ASTNode) => void) {
+        walkerFn(this);
+        for (const child of this.children) {
+            child.walk(walkerFn);
+        }
+    }
+} as ASTNode;
 
 export const ASTNode = createASTNode as unknown as {
     new <
@@ -399,8 +412,8 @@ export const ASTNode = createASTNode as unknown as {
     > (
         type: Type,
         source: SourceInfo,
-        node: Omit<Node, 'type' | 'source'>
-    ): Node;
+        node: Omit<Node, 'type' | 'source' | keyof __ASTNode_Prototype>
+    ): Node & typeof __ASTNode_prototype;
     prototype: typeof __ASTNode_prototype;
 };
 ASTNode.prototype = __ASTNode_prototype
@@ -412,5 +425,49 @@ export type ASTNode =
     Assert             | If                    | Pick               | Parse |
     Send               | React                 | IsExpression       | RelationalExpression |
     BinaryOpExpression | UnaryOpExpression     | OfExpression       | Identifier |
-    StringLiteral      | TemplateStringLiteral | NumberLiteral      | BooleanLiteral |
+    RawStringLiteral   | TemplateStringLiteral | NumberLiteral      | BooleanLiteral |
     ListLiteral        | DictLiteral           | Carry              | InvokeExpression;
+
+function getChildren(node: ASTNode): readonly ASTNode[] {
+    switch (node.type) {
+        case ASTNodeType.Program: return node.declarations;
+        // case ASTNodeType.FileImport: return [];
+        case ASTNodeType.ModuleImport: return node.members;
+        case ASTNodeType.DeclareVariable: return [node.name, node.value];
+        case ASTNodeType.GroupDefinition: return [node.name, ...node.members];
+        case ASTNodeType.CommandDefinition:
+            return [
+                node.name, ...node.parameters,
+                ...(node.restParam ? [node.restParam] : []),
+                ...node.statements
+            ];
+        case ASTNodeType.FunctionDefinition:
+            return [
+                node.name, ...node.parameters,
+                ...(node.restParam ? [node.restParam] : []),
+                ...node.statements
+            ];
+        case ASTNodeType.EventListenerDefinition: return node.statements;
+        case ASTNodeType.Assert: return [node.checkExpression, ...(node.elseStatements ?? [])];
+        case ASTNodeType.If: return [node.checkExpression, ...node.thenStatements, ...(node.elseStatements ?? [])];
+        case ASTNodeType.Pick: return [node.collection];
+        case ASTNodeType.Parse: return [node.serialized];
+        case ASTNodeType.Carry: return [node.expression];
+        case ASTNodeType.Send: return [node.message];
+        case ASTNodeType.React: return [...(node.targetMessage ? [node.targetMessage] : []), node.reaction];
+        case ASTNodeType.IsExpression: return [node.expression];
+        case ASTNodeType.RelationalExpression: return node.expressions;
+        case ASTNodeType.BinaryOpExpression: return [node.lhs, node.rhs];
+        case ASTNodeType.UnaryOpExpression: return [node.expression];
+        case ASTNodeType.OfExpression: return [...node.referenceChain, node.root];
+        case ASTNodeType.InvokeExpression: return [node.function, ...node.arguments];
+        // case ASTNodeType.Identifier: return [];
+        // case ASTNodeType.RawStringLiteral: return [];
+        // case ASTNodeType.TemplateStringLiteral: return [];
+        // case ASTNodeType.NumberLiteral: return [];
+        // case ASTNodeType.BooleanLiteral: return [];
+        case ASTNodeType.ListLiteral: return node.values;
+        case ASTNodeType.DictLiteral: return node.keys.reduce((a, b, i) => a.concat(b, node.values[i]), [] as ASTNode[]);
+        default: return [];
+    }
+}

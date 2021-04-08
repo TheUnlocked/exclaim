@@ -1,10 +1,16 @@
 {
   "scripts": {
-    "antlr4s": "antlr4ts -visitor -o src/parser/generated -lib grammar/.antlr grammar/Exclaim.g4"
+    "antlr4s": "antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4",
+    "test": "mocha"
   },
   "devDependencies": {
+    "@types/assert": "^1.5.4",
+    "@types/mocha": "^8.2.2",
     "antlr4ts-cli": "^0.5.0-alpha.4",
-    "mocha": "^8.3.2"
+    "assert": "^2.0.0",
+    "mocha": "^8.3.2",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.4"
   },
   "dependencies": {
     "antlr4ts": "^0.5.0-alpha.4"
