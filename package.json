@@ -1,13 +1,20 @@
 {
   "scripts": {
     "antlr4s": "antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4",
-    "test": "mocha"
+    "test": "run lint && mocha",
+    "lint": "eslint --ext .ts",
+    "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {
     "@types/assert": "^1.5.4",
     "@types/mocha": "^8.2.2",
+    "@typescript-eslint/eslint-plugin": "^4.21.0",
+    "@typescript-eslint/parser": "^4.21.0",
     "antlr4ts-cli": "^0.5.0-alpha.4",
     "assert": "^2.0.0",
+    "eslint": "^7.23.0",
+    "eslint-config-airbnb-typescript": "^12.3.1",
+    "eslint-plugin-import": "^2.22.1",
     "mocha": "^8.3.2",
     "ts-node": "^9.1.1",
     "typescript": "^4.2.4"

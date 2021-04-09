@@ -1,0 +1,38 @@
+{
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "module",
+        "project": "./tsconfig.json"
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "extends": [
+        "airbnb-typescript/base"
+    ],
+    "ignorePatterns": ["**/generated/*"],
+    "rules": {
+        "@typescript-eslint/indent": ["warn", 4],
+        "object-curly-newline": ["error", {
+            "ImportDeclaration": "never"
+        }],
+        "import/prefer-default-export": "off",
+        "@typescript-eslint/no-useless-constructor": "off",
+        "@typescript-eslint/no-empty-function": "off",
+        "max-len": "off",
+        "no-underscore-dangle": "off",
+        "class-methods-use-this": "off",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "linebreak-style": "off",
+        "@typescript-eslint/naming-convention": "off",
+        "@typescript-eslint/no-use-before-define": "off",
+        "@typescript-eslint/no-redeclare": "off",
+        "no-restricted-syntax": "off", // okay so the linter won't catch with, fine
+        "no-multi-spaces": "off",
+        "@typescript-eslint/comma-dangle": "off",
+        "@typescript-eslint/brace-style": ["error", "stroustrup"]
+    }
+}

@@ -1,5 +1,4 @@
-import { ParserRuleContext } from "antlr4ts";
-import { SourceInfo } from "../SourceInfo";
+import { SourceInfo } from '../SourceInfo';
 
 export enum ASTNodeType {
     Program,
@@ -106,7 +105,7 @@ export interface FunctionDefinition extends _FunctionLikeDefinition {
 export type ActionDefinition = EventListenerDefinition | CommandDefinition | FunctionDefinition;
 
 export function isActionDefinition(node: ASTNode): node is ActionDefinition {
-    switch(node.type) {
+    switch (node.type) {
         case ASTNodeType.EventListenerDefinition: case ASTNodeType.CommandDefinition: case ASTNodeType.FunctionDefinition:
             return true;
         default:
@@ -123,7 +122,7 @@ export function isGroupableDefinition(node: ASTNode): node is GroupableDefinitio
 export type Declaration = FileImport | ModuleImport | DeclareVariable | GroupableDefinition;
 
 export function isDeclaration(node: ASTNode): node is Declaration {
-    switch(node.type) {
+    switch (node.type) {
         case ASTNodeType.FileImport: case ASTNodeType.ModuleImport: case ASTNodeType.DeclareVariable:
             return true;
         default:
@@ -307,7 +306,7 @@ export interface TemplateStringLiteral extends _ASTNode_Base {
 export type StringLiteral = RawStringLiteral | TemplateStringLiteral;
 
 export function isStringLiteral(node: ASTNode): node is LiteralExpression {
-    switch(node.type) {
+    switch (node.type) {
         case ASTNodeType.RawStringLiteral:  case ASTNodeType.TemplateStringLiteral:
             return true;
         default:
@@ -343,7 +342,7 @@ export type LiteralExpression =
     BooleanLiteral | ListLiteral           | DictLiteral;
 
 export function isLiteralExpression(node: ASTNode): node is LiteralExpression {
-    switch(node.type) {
+    switch (node.type) {
         case ASTNodeType.RawStringLiteral:  case ASTNodeType.TemplateStringLiteral: case ASTNodeType.NumberLiteral:
         case ASTNodeType.BooleanLiteral: case ASTNodeType.ListLiteral:           case ASTNodeType.DictLiteral:
             return true;
@@ -360,7 +359,7 @@ export type Expression =
     InvokeExpression;
 
 export function isExpression(node: ASTNode): node is Expression {
-    switch(node.type) {
+    switch (node.type) {
         case ASTNodeType.IsExpression:      case ASTNodeType.RelationalExpression:  case ASTNodeType.BinaryOpExpression:
         case ASTNodeType.UnaryOpExpression: case ASTNodeType.OfExpression:          case ASTNodeType.Identifier:
         case ASTNodeType.RawStringLiteral:  case ASTNodeType.TemplateStringLiteral: case ASTNodeType.NumberLiteral:
@@ -374,7 +373,7 @@ export function isExpression(node: ASTNode): node is Expression {
 
 function createASTNode<
     Type extends ASTNodeType,
-    Node extends ASTNode & {type: Type}
+    Node extends ASTNode & { type: Type }
 >(
     this: typeof __ASTNode_prototype,
     type: Type,
@@ -408,7 +407,7 @@ const __ASTNode_prototype = {
 export const ASTNode = createASTNode as unknown as {
     new <
         Type extends ASTNodeType,
-        Node extends ASTNode & {type: Type}
+        Node extends ASTNode & { type: Type }
     > (
         type: Type,
         source: SourceInfo,
@@ -416,7 +415,7 @@ export const ASTNode = createASTNode as unknown as {
     ): Node & typeof __ASTNode_prototype;
     prototype: typeof __ASTNode_prototype;
 };
-ASTNode.prototype = __ASTNode_prototype
+Object.assign(ASTNode.prototype, __ASTNode_prototype);
 
 export type ASTNode =
     Program            | FileImport            | ModuleImport       | DeclareVariable |

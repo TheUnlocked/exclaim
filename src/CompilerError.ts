@@ -1,9 +1,9 @@
-import { SourceInfo } from "./SourceInfo";
+import { SourceInfo } from './SourceInfo';
 
 export enum ErrorType {
     NoImportTemplateString,
     ExpressionCannotProduceBoolean,
-    InvalidEscapeSequence
+    InvalidEscapeSequence,
 }
 
 export interface CompilerError {
