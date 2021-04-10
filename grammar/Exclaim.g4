@@ -102,7 +102,7 @@ list: openBlock ((expr COMMA NL?)* expr)? closeBlock;
 
 dict: openBlock ((objectKey COLON expr COMMA NL?)* expr)? closeBlock;
 
-number: NUMBER;
+number: NUMBER | ILLEGAL_NUMBER;
 
 identifier
     : IMPORT | FROM    | DATA     | TEMP

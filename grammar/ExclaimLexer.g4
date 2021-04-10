@@ -31,7 +31,8 @@ TRUE: 'true';
 FALSE: 'false';
 
 fragment INTEGER: [0-9]+ ('_'+ [0-9]+)*;
-NUMBER: '-'? INTEGER? '.'? INTEGER ('e' '-'? INTEGER)?;
+NUMBER: '-'? INTEGER '.'? INTEGER? ('e' '-'? INTEGER)?;
+ILLEGAL_NUMBER: '-'? INTEGER? ('_'? '.' '_'?)? INTEGER ('_'? 'e' '_'? ('-' '_'?)? INTEGER '.'? INTEGER?)? '_'?;
 
 L_BRACKET: '[';
 R_BRACKET: ']';

@@ -39,7 +39,7 @@ export enum ASTNodeType {
     NumberLiteral,
     BooleanLiteral,
     ListLiteral,
-    DictLiteral,
+    DictLiteral
 }
 
 interface _ASTNode_Base extends __ASTNode_Prototype {
@@ -383,7 +383,7 @@ function createASTNode<
     return {
         type,
         source,
-        ...node,
+        ...node
     };
 }
 

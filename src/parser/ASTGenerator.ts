@@ -8,15 +8,6 @@ import { ExclaimVisitor } from './generated/ExclaimVisitor';
 import { SourceInfo } from '../SourceInfo';
 import { CompilerError, ErrorType } from '../CompilerError';
 
-const ESCAPE_TABLE = {
-    n: '\n',
-    t: '\t',
-    r: '\r',
-    '\\': '\\',
-    '{': '{',
-    '}': '}',
-} as { [seq: string]: string };
-
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     sourceFile: string = '';
 
@@ -28,7 +19,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     private getSourceInfo(ctx: ParseTree) {
         return {
             ctx,
-            file: this.sourceFile,
+            file: this.sourceFile
         } as SourceInfo;
     }
 
@@ -39,26 +30,26 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     private getStatements(ctx: FunctionBlockContext | undefined | { functionBlock: () => FunctionBlockContext | undefined }) {
         if (ctx) {
             const functionBlock = ctx instanceof FunctionBlockContext ? ctx : ctx.functionBlock();
-            return functionBlock?.statement().map((x) => x.accept(this) as Statement);
+            return functionBlock?.statement().map(x => x.accept(this) as Statement);
         }
         return undefined;
     }
 
     visitProgram(ctx: ProgramContext) {
         return new ASTNode(ASTNodeType.Program, this.getSourceInfo(ctx), {
-            declarations: ctx.topLevelDeclaration().map((x) => x.accept(this) as Declaration),
+            declarations: ctx.topLevelDeclaration().map(x => x.accept(this) as Declaration)
         });
     }
 
     getImportFilename(ctx: StringContext) {
         const str = ctx.accept(this) as StringLiteral;
         if (str.type === ASTNodeType.TemplateStringLiteral) {
-            this.errors.push({
-                type: ErrorType.NoImportTemplateString,
-                source: this.getSourceInfo(ctx),
-                message: 'Import declarations cannot use template strings',
-            });
-            return str.fragments.filter((x) => x.type === 'text').join('');
+            this.errors.push(new CompilerError(
+                ErrorType.NoImportTemplateString,
+                this.getSourceInfo(ctx),
+                'Import declarations cannot use template strings'
+            ));
+            return str.fragments.filter(x => x.type === 'text').join('');
         }
 
         return str.value;
@@ -66,14 +57,14 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     visitExclaimImportDeclaration(ctx: ExclaimImportDeclarationContext): FileImport {
         return new ASTNode(ASTNodeType.FileImport, this.getSourceInfo(ctx), {
-            filename: this.getImportFilename(ctx.string()),
+            filename: this.getImportFilename(ctx.string())
         });
     }
 
     visitJavascriptImportDeclaration(ctx: JavascriptImportDeclarationContext): ModuleImport {
         return new ASTNode(ASTNodeType.ModuleImport, this.getSourceInfo(ctx), {
             filename: this.getImportFilename(ctx.string()),
-            members: ctx.identifier().map((x) => x.accept(this) as Identifier),
+            members: ctx.identifier().map(x => x.accept(this) as Identifier)
         });
     }
 
@@ -81,7 +72,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.DeclareVariable, this.getSourceInfo(ctx), {
             variant: 'data',
             name: ctx.identifier().accept(this) as Identifier,
-            value: ctx.literal().accept(this) as LiteralExpression,
+            value: ctx.literal().accept(this) as LiteralExpression
         });
     }
 
@@ -89,14 +80,14 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.DeclareVariable, this.getSourceInfo(ctx), {
             variant: 'temp',
             name: ctx.identifier().accept(this) as Identifier,
-            value: ctx.literal().accept(this) as LiteralExpression,
+            value: ctx.literal().accept(this) as LiteralExpression
         });
     }
 
     visitGroupDeclaration(ctx: GroupDeclarationContext): GroupDefinition {
         return new ASTNode(ASTNodeType.GroupDefinition, this.getSourceInfo(ctx), {
             name: ctx.identifier().accept(this) as Identifier,
-            members: ctx.groupBlock().blockDeclaration().map((x) => x.accept(this) as GroupableDefinition),
+            members: ctx.groupBlock().blockDeclaration().map(x => x.accept(this) as GroupableDefinition)
         });
     }
 
@@ -115,10 +106,10 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
         return new ASTNode(ASTNodeType.CommandDefinition, this.getSourceInfo(ctx), {
             name: ctx.identifier().accept(this) as Identifier,
-            parameters: ctx.commandParams().param().map((x) => x.accept(this) as Identifier),
+            parameters: ctx.commandParams().param().map(x => x.accept(this) as Identifier),
             restParam,
             restParamVariant,
-            statements: this.getStatements(ctx),
+            statements: this.getStatements(ctx)
         });
     }
 
@@ -133,17 +124,17 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
         return new ASTNode(ASTNodeType.FunctionDefinition, this.getSourceInfo(ctx), {
             name: ctx.identifier().accept(this) as Identifier,
-            parameters: ctx.functionParams().param().map((x) => x.accept(this) as Identifier),
+            parameters: ctx.functionParams().param().map(x => x.accept(this) as Identifier),
             restParam,
             restParamVariant,
-            statements: this.getStatements(ctx),
+            statements: this.getStatements(ctx)
         });
     }
 
     visitEventDeclaration(ctx: EventDeclarationContext): EventListenerDefinition {
         return new ASTNode(ASTNodeType.EventListenerDefinition, this.getSourceInfo(ctx), {
             event: ctx.identifier().text,
-            statements: this.getStatements(ctx),
+            statements: this.getStatements(ctx)
         });
     }
 
@@ -151,21 +142,21 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.ForEach, this.getSourceInfo(ctx), {
             loopVariable: ctx.identifier().accept(this) as Identifier,
             collection: ctx.expr().accept(this) as Expression,
-            statements: this.getStatements(ctx),
+            statements: this.getStatements(ctx)
         });
     }
 
     visitWhileStatement(ctx: WhileStatementContext): While {
         return new ASTNode(ASTNodeType.While, this.getSourceInfo(ctx), {
             checkExpression: ctx.expr().accept(this) as Expression,
-            statements: this.getStatements(ctx),
+            statements: this.getStatements(ctx)
         });
     }
 
     visitAssertStatement(ctx: AssertStatementContext): Assert {
         return new ASTNode(ASTNodeType.Assert, this.getSourceInfo(ctx), {
             checkExpression: ctx.expr().accept(this) as Expression,
-            elseStatements: this.getStatements(ctx),
+            elseStatements: this.getStatements(ctx)
         });
     }
 
@@ -173,61 +164,61 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.If, this.getSourceInfo(ctx), {
             checkExpression: ctx.expr().accept(this) as Expression,
             thenStatements: this.getStatements(ctx.functionBlock(0)),
-            elseStatements: this.getStatements(ctx.functionBlock(1)),
+            elseStatements: this.getStatements(ctx.functionBlock(1))
         });
     }
 
     visitSendStatement(ctx: SendStatementContext): Send {
         return new ASTNode(ASTNodeType.Send, this.getSourceInfo(ctx), {
-            message: ctx.expr().accept(this) as Expression,
+            message: ctx.expr().accept(this) as Expression
         });
     }
 
     visitReactStatement(ctx: ReactStatementContext): React {
         return new ASTNode(ASTNodeType.React, this.getSourceInfo(ctx), {
             targetMessage: undefined,
-            reaction: ctx.expr().accept(this) as Expression,
+            reaction: ctx.expr().accept(this) as Expression
         });
     }
 
     visitReactToStatement(ctx: ReactToStatementContext): React {
         return new ASTNode(ASTNodeType.React, this.getSourceInfo(ctx), {
             targetMessage: ctx.expr(0).accept(this) as Expression,
-            reaction: ctx.expr(1).accept(this) as Expression,
+            reaction: ctx.expr(1).accept(this) as Expression
         });
     }
 
     visitSetStatement(ctx: SetStatementContext): Set {
         return new ASTNode(ASTNodeType.Set, this.getSourceInfo(ctx), {
             variable: ctx.lvalue().accept(this) as Identifier | OfExpression,
-            expression: ctx.expr().accept(this) as Expression,
+            expression: ctx.expr().accept(this) as Expression
         });
     }
 
     visitAssignStatement(ctx: AssignStatementContext): Assign {
         return new ASTNode(ASTNodeType.Assign, this.getSourceInfo(ctx), {
             variable: ctx.identifier().accept(this) as Identifier,
-            value: ctx.valueStatement().accept(this) as ValueStatement,
+            value: ctx.valueStatement().accept(this) as ValueStatement
         });
     }
 
     visitPickStatement(ctx: PickStatementContext): Pick {
         return new ASTNode(ASTNodeType.Pick, this.getSourceInfo(ctx), {
             distribution: ctx.identifier().text,
-            collection: ctx.expr().accept(this) as Expression,
+            collection: ctx.expr().accept(this) as Expression
         });
     }
 
     visitParseStatement(ctx: ParseStatementContext): Parse {
         return new ASTNode(ASTNodeType.Parse, this.getSourceInfo(ctx), {
             serialized: ctx.expr().accept(this) as Expression,
-            parser: ctx.identifier().text,
+            parser: ctx.identifier().text
         });
     }
 
     visitExprStatement(ctx: ExprStatementContext): Carry {
         return new ASTNode(ASTNodeType.Carry, this.getSourceInfo(ctx), {
-            expression: ctx.expr().accept(this) as Expression,
+            expression: ctx.expr().accept(this) as Expression
         });
     }
 
@@ -235,14 +226,14 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.IsExpression, this.getSourceInfo(ctx), {
             expression: ctx.term().accept(this) as Expression,
             isNot: !!ctx.NOT(),
-            targetType: ctx.identifier().text,
+            targetType: ctx.identifier().text
         });
     }
 
     visitCheckCompareExpr(ctx: CheckCompareExprContext): RelationalExpression {
         return new ASTNode(ASTNodeType.RelationalExpression, this.getSourceInfo(ctx), {
-            operators: ctx.relationalOperator().map((x) => x.text as '==' | '!=' | '<' | '<=' | '>' | '>='),
-            expressions: ctx.mathExpr().map((x) => x.accept(this) as Expression),
+            operators: ctx.relationalOperator().map(x => x.text as '==' | '!=' | '<' | '<=' | '>' | '>='),
+            expressions: ctx.mathExpr().map(x => x.accept(this) as Expression)
         });
     }
 
@@ -250,7 +241,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.BinaryOpExpression, this.getSourceInfo(ctx), {
             operator: ctx._op.text as '*' | '/',
             lhs: ctx.mathExpr(0).accept(this) as Expression,
-            rhs: ctx.mathExpr(1).accept(this) as Expression,
+            rhs: ctx.mathExpr(1).accept(this) as Expression
         });
     }
 
@@ -258,94 +249,134 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.BinaryOpExpression, this.getSourceInfo(ctx), {
             operator: ctx._op.text as '+' | '-',
             lhs: ctx.mathExpr(0).accept(this) as Expression,
-            rhs: ctx.mathExpr(1).accept(this) as Expression,
+            rhs: ctx.mathExpr(1).accept(this) as Expression
         });
     }
 
     visitPrefixAdd(ctx: PrefixAddExprContext): UnaryOpExpression {
         return new ASTNode(ASTNodeType.UnaryOpExpression, this.getSourceInfo(ctx), {
             operator: ctx._op.text as '+' | '-',
-            expression: ctx.term().accept(this) as Expression,
+            expression: ctx.term().accept(this) as Expression
         });
     }
 
     visitPrefixNot(ctx: PrefixNotExprContext): UnaryOpExpression {
         return new ASTNode(ASTNodeType.UnaryOpExpression, this.getSourceInfo(ctx), {
             operator: 'not',
-            expression: ctx.term().accept(this) as Expression,
+            expression: ctx.term().accept(this) as Expression
         });
     }
 
     visitInvokeExpr(ctx: InvokeExprContext): InvokeExpression {
         return new ASTNode(ASTNodeType.InvokeExpression, this.getSourceInfo(ctx), {
             function: ctx.identifier().accept(this) as Identifier,
-            arguments: ctx.expr().map((x) => x.accept(this) as Expression),
+            arguments: ctx.expr().map(x => x.accept(this) as Expression)
         });
     }
 
     visitOfExpression(ctx: OfExpressionContext): OfExpression {
-        const referenceChain = ctx.objectKey().map((x) => x.accept(this) as ObjectKey);
+        const referenceChain = ctx.objectKey().map(x => x.accept(this) as ObjectKey);
         return new ASTNode(ASTNodeType.OfExpression, this.getSourceInfo(ctx), {
             root: ctx.term().accept(this) as Expression,
-            referenceChain,
+            referenceChain
         });
     }
 
     visitIdentifier(ctx: IdentifierContext): Identifier {
         return new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
-            name: ctx.text,
+            name: ctx.text
         });
     }
 
     visitList(ctx: ListContext): ListLiteral {
         return new ASTNode(ASTNodeType.ListLiteral, this.getSourceInfo(ctx), {
-            values: ctx.expr().map((x) => x.accept(this) as Expression),
+            values: ctx.expr().map(x => x.accept(this) as Expression)
         });
     }
 
     visitDict(ctx: DictContext): DictLiteral {
         return new ASTNode(ASTNodeType.DictLiteral, this.getSourceInfo(ctx), {
-            keys: ctx.objectKey().map((x) => x.accept(this) as ObjectKey),
-            values: ctx.expr().map((x) => x.accept(this) as Expression),
+            keys: ctx.objectKey().map(x => x.accept(this) as ObjectKey),
+            values: ctx.expr().map(x => x.accept(this) as Expression)
         });
     }
 
     visitNumber(ctx: NumberContext): NumberLiteral {
+        if (ctx.ILLEGAL_NUMBER()) {
+            this.errors.push(new CompilerError(
+                ErrorType.InvalidNumber,
+                this.getSourceInfo(ctx),
+                'Invalid number syntax; this may be because of invalid numeric seperators (underscores) or a decimal point in an exponentiation term'
+            ));
+            return new ASTNode(ASTNodeType.NumberLiteral, this.getSourceInfo(ctx), {
+                value: Number(ctx.ILLEGAL_NUMBER()!.text.replace(/_/g, ''))
+            });
+        }
         return new ASTNode(ASTNodeType.NumberLiteral, this.getSourceInfo(ctx), {
-            value: Number(ctx.NUMBER().text.replace(/_/g, '')),
+            value: Number(ctx.NUMBER()!.text.replace(/_/g, ''))
         });
     }
 
     visitString(ctx: StringContext): StringLiteral {
-        const fragments = ctx.stringContent().map<TemplateStringFragment>((x) => {
+        function getDedentOffset(firstCharacterIndent: number, str: string) {
+            const [firstLine, ...otherLines] = str.split('\n');
+
+            if (otherLines.length === 0) {
+                return 0;
+            }
+
+            const offsets = [firstCharacterIndent, ...otherLines.map(x => x.search(/[^ ]/)).filter(x => x !== -1)];
+            if (otherLines[otherLines.length - 1].search(/[^ ]/) === -1) {
+                offsets.push(otherLines[otherLines.length - 1].length);
+            }
+
+            return Math.min(...offsets);
+        }
+
+        const rawContents = ctx.text;
+        const dedentOffset = getDedentOffset(ctx.start.charPositionInLine, rawContents.slice(1, rawContents.length - 1));
+
+        let fragments = ctx.stringContent().map<TemplateStringFragment & { _fromEscapeSequence?: string }>(x => {
             const embedded = x.embeddedJS();
             if (embedded) {
                 return {
                     type: 'javascript',
-                    contents: embedded.text.slice(1, embedded.text.length - 1),
+                    contents: embedded.text.slice(1, embedded.text.length - 1)
                 };
             }
 
             const escape = x.ESCAPE_SEQUENCE()?.text.slice(1);
             if (escape) {
+                const ESCAPE_TABLE = {
+                    n: '\n',
+                    t: '\t',
+                    r: '\r',
+                    '\\': '\\',
+                    '{': '{',
+                    '}': '}',
+                    '"': '"',
+                    ' ': ' '
+                } as { [seq: string]: string };
+
                 switch (escape.length) {
                     case 1:
                         // Single character
                         if (escape in ESCAPE_TABLE) {
                             return {
                                 type: 'text',
-                                contents: ESCAPE_TABLE[escape],
+                                contents: ESCAPE_TABLE[escape]
                             };
                         }
 
-                        this.errors.push({
-                            type: ErrorType.InvalidEscapeSequence,
-                            source: this.getSourceInfo(x.ESCAPE_SEQUENCE()!),
-                            message: `\\${escape} is not a valid escape sequence`,
-                        });
+                        this.errors.push(new CompilerError(
+                            ErrorType.InvalidEscapeSequence,
+                            this.getSourceInfo(x.ESCAPE_SEQUENCE()!),
+                            `\\${escape} is not a valid escape sequence`
+                        ));
                         return {
                             type: 'text',
                             contents: escape,
+                            _fromEscapeSequence: escape
                         };
                     case 3:
                         // hex
@@ -356,23 +387,32 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
             return {
                 type: 'text',
-                contents: x.STRING_CONTENTS()!.text,
+                contents: x.STRING_CONTENTS()!.text
             };
         });
 
-        if (fragments.some((x) => x.type === 'javascript')) {
+        // Dedent
+        fragments = fragments.map(x => {
+            if (x.type === 'text' && !x._fromEscapeSequence) {
+                // eslint-disable-next-line no-param-reassign
+                x.contents = x.contents.split('\n').map((x, i) => i > 0 ? x.slice(dedentOffset) : x).join('\n');
+            }
+            return x;
+        }).filter(x => x.contents.length > 0);
+
+        if (fragments.some(x => x.type === 'javascript')) {
             return new ASTNode(ASTNodeType.TemplateStringLiteral, this.getSourceInfo(ctx), {
-                fragments,
+                fragments
             });
         }
         return new ASTNode(ASTNodeType.RawStringLiteral, this.getSourceInfo(ctx), {
-            value: fragments.reduce((a, b) => a + b.contents, ''),
+            value: fragments.reduce((a, b) => a + b.contents, '')
         });
     }
 
     visitBoolLiteral(ctx: BoolLiteralContext): BooleanLiteral {
         return new ASTNode(ASTNodeType.BooleanLiteral, this.getSourceInfo(ctx), {
-            value: !!ctx.TRUE(),
+            value: !!ctx.TRUE()
         });
     }
 

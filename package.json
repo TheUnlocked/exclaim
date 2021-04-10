@@ -1,7 +1,7 @@
 {
   "scripts": {
     "antlr4s": "antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4",
-    "test": "run lint && mocha",
+    "test": "mocha",
     "lint": "eslint --ext .ts",
     "lint:fix": "npm run lint -- --fix"
   },
