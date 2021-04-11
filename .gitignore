@@ -78,3 +78,6 @@ typings/
 # Auto-generated antlr files
 grammar/.antlr
 src/parser/generated
+
+# Typescript incremental building cache
+tsconfig.tsbuildinfo
