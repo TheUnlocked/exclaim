@@ -1,9 +1,110 @@
 import { CompilerError, ErrorType } from '../CompilerError';
-import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression } from '../parser/AST';
+import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program } from '../parser/AST';
 import { zip } from '../util';
 
 export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<string> {
     errors = [] as CompilerError[];
+
+    visitProgram(ast: Program): string {
+        throw new Error('Method not implemented');
+    }
+
+    visitFileImport(ast: FileImport): string {
+        // Will probably want to handle this in an earlier phase, maybe during parsing.
+        throw new Error('Method not implemented');
+    }
+
+    visitModuleImport(ast: ModuleImport): string {
+        return `import {${ast.members.map(x => x.accept(this)).join(',')}} from ${JSON.stringify(ast.filename)};`;
+    }
+
+    visitDeclareVariable(ast: DeclareVariable): string {
+        if (ast.variant === 'temp') {
+            return `let ${ast.name.accept(this)}=${ast.value.accept(this)};`;
+        }
+        throw new Error('Method not implemented');
+    }
+
+    visitGroupDefinition(ast: GroupDefinition): string {
+        throw new Error('Method not implemented');
+    }
+
+    private statements(ast: { statements: Statement[] }): string;
+    private statements(statements: Statement[]): string;
+    private statements(x: Statement[] | { statements: Statement[] }) {
+        if (x instanceof Array) {
+            return x.map(x => x.accept(this)).join('');
+        }
+        return x.statements.map(x => x.accept(this)).join('');
+    }
+
+    visitCommandDefinition(ast: CommandDefinition): string {
+        throw new Error('Method not implemented');
+    }
+
+    visitFunctionDefinition(ast: FunctionDefinition): string {
+        throw new Error('Method not implemented');
+    }
+
+    visitEventListenerDefinition(ast: EventListenerDefinition): string {
+        // TODO: specify mechanism for which this generation can be done in a general way
+        throw new Error('Method not implemented');
+    }
+
+    visitForEach(ast: ForEach): string {
+        return `for(let ${ast.loopVariable.accept(this)} of ${ast.collection.accept(this)}){${this.statements(ast)}}`;
+    }
+
+    visitWhile(ast: While): string {
+        return `while(${ast.checkExpression.accept(this)}){${this.statements(ast)}}`;
+    }
+
+    visitIf(ast: If): string {
+        const ifPart = `if(${ast.checkExpression.accept(this)}){${this.statements(ast.thenStatements)}}`;
+        if (ast.elseStatements) {
+            return ifPart + `else{${this.statements(ast.elseStatements)}}`;
+        }
+        return ifPart;
+    }
+
+    visitSend(ast: Send): string {
+        throw new Error('Method not implemented');
+    }
+
+    visitReact(ast: React): string {
+        throw new Error('Method not implemented');
+    }
+
+    visitFail(ast: Fail): string {
+        throw new Error('Method not implemented');
+    }
+
+    private assignment(ast: ValueStatement | string, exprCode: string): string {
+        return `${typeof ast === 'string' ? ast : ast.assignTo ?? 'it'}=${exprCode};`;
+    }
+
+    visitSet(ast: Set): string {
+        return this.assignment(ast.variable.accept(this), ast.expression.accept(this));
+    }
+
+    visitPick(ast: Pick): string {
+        // TODO: specify mechanism for which this generation can be done in a general way
+        throw new Error('Method not implemented');
+    }
+
+    visitParse(ast: Parse): string {
+        // TODO: specify mechanism for which this generation can be done in a general way
+        throw new Error('Method not implemented');
+    }
+
+    visitExprStatement(ast: ExprStatement): string {
+        return this.assignment(ast, ast.expression.accept(this));
+    }
+
+    visitIsExpression(ast: IsExpression): string {
+        // TODO: specify mechanism for which this generation can be done in a general way
+        throw new Error('Method not implemented');
+    }
 
     visitRelationalExpression(ast: RelationalExpression): string {
         const segments = [] as string[];
@@ -36,10 +137,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitOfExpression(ast: OfExpression): string {
-        const openingParens = new Array(ast.referenceChain.length + 1).fill('(').join('');
-        const root = ast.root.accept(this);
-        const children = ast.children.map(x => `[${x.accept(this)}] ?? $fail())`).join('');
-        return openingParens + root + children;
+        return `${ast.root.accept(this)}${ast.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `["${x.name}"]` : `[${x.accept(this)}]`).join('')}`;
     }
 
     visitIdentifier(ast: Identifier): string {

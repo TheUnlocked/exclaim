@@ -17,14 +17,13 @@ export enum ASTNodeType {
     While,
     If,
     Send,
-    Fail,
     React,
+    Fail,
     Set,
-    Assign,
-
+    
     Pick,
     Parse,
-    Carry,
+    ExprStatement,
 
     IsExpression,
     RelationalExpression,
@@ -186,35 +185,33 @@ export interface Set extends _ASTNode_Base {
     expression: Expression;
 }
 
-export interface Assign extends _ASTNode_Base {
-    type: ASTNodeType.Assign;
-    variable: Identifier;
-    value: ValueStatement;
+interface _ValueStatement extends _ASTNode_Base {
+    assignTo?: Identifier;
 }
 
-export interface Pick extends _ASTNode_Base {
+export interface Pick extends _ValueStatement {
     type: ASTNodeType.Pick;
     distribution: string;
     collection: Expression;
 }
 
-export interface Parse extends _ASTNode_Base {
+export interface Parse extends _ValueStatement {
     type: ASTNodeType.Parse;
     parser: string;
     expression: Expression;
     elseStatements: Statement[] | undefined;
 }
 
-export interface Carry extends _ASTNode_Base {
-    type: ASTNodeType.Carry;
+export interface ExprStatement extends _ValueStatement {
+    type: ASTNodeType.ExprStatement;
     expression: Expression;
 }
 
-export type ValueStatement = Pick | Parse | Carry;
+export type ValueStatement = Pick | Parse | ExprStatement;
 
 export function isValueStatement(node: ASTNode): node is ValueStatement {
     switch (node.type) {
-        case ASTNodeType.Pick: case ASTNodeType.Parse: case ASTNodeType.Carry:
+        case ASTNodeType.Pick: case ASTNodeType.Parse: case ASTNodeType.ExprStatement:
             return true;
         default:
             return false;
@@ -222,15 +219,15 @@ export function isValueStatement(node: ASTNode): node is ValueStatement {
 }
 
 export type Statement =
-    Assign | Set   | ForEach | While |
-    Fail | If    | Pick    | Parse |
-    Send   | React | Carry;
+    Set   | ForEach | While | Fail |
+    If    | Pick    | Parse | Send |
+    React | ExprStatement;
 
 export function isStatement(node: ASTNode): node is Statement {
     switch (node.type) {
-        case ASTNodeType.Assign: case ASTNodeType.Set:   case ASTNodeType.ForEach: case ASTNodeType.While:
-        case ASTNodeType.Fail: case ASTNodeType.If:    case ASTNodeType.Pick:    case ASTNodeType.Parse:
-        case ASTNodeType.Send:   case ASTNodeType.React: case ASTNodeType.Carry:
+        case ASTNodeType.Set:  case ASTNodeType.ForEach: case ASTNodeType.While:
+        case ASTNodeType.Fail: case ASTNodeType.If:      case ASTNodeType.Pick:    case ASTNodeType.Parse:
+        case ASTNodeType.Send: case ASTNodeType.React:   case ASTNodeType.ExprStatement:
             return true;
         default:
             return false;
@@ -411,12 +408,12 @@ export const ASTNode = createASTNode as unknown as {
 export type ASTNode =
     Program            | FileImport            | ModuleImport       | DeclareVariable |
     GroupDefinition    | CommandDefinition     | FunctionDefinition | EventListenerDefinition |
-    Assign             | Set                   | ForEach            | While |
+    Set                | ForEach               | While |
     Fail               | If                    | Pick               | Parse |
     Send               | React                 | IsExpression       | RelationalExpression |
     BinaryOpExpression | UnaryOpExpression     | OfExpression       | Identifier |
     RawStringLiteral   | TemplateStringLiteral | NumberLiteral      | BooleanLiteral |
-    ListLiteral        | DictLiteral           | Carry              | InvokeExpression |
+    ListLiteral        | DictLiteral           | ExprStatement      | InvokeExpression |
     JavascriptExpression;
 
 function getChildren(node: ASTNode): readonly ASTNode[] {
@@ -441,7 +438,7 @@ function getChildren(node: ASTNode): readonly ASTNode[] {
         case ASTNodeType.If: return [node.checkExpression, ...node.thenStatements, ...(node.elseStatements ?? [])];
         case ASTNodeType.Pick: return [node.collection];
         case ASTNodeType.Parse: return [node.expression];
-        case ASTNodeType.Carry: return [node.expression];
+        case ASTNodeType.ExprStatement: return [node.expression];
         case ASTNodeType.Send: return [node.message];
         case ASTNodeType.React: return [...(node.targetMessage ? [node.targetMessage] : []), node.reaction];
         case ASTNodeType.IsExpression: return [node.expression];

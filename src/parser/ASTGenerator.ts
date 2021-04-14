@@ -3,7 +3,7 @@ import { ParseTree } from 'antlr4ts/tree/ParseTree';
 import { RuleNode } from 'antlr4ts/tree/RuleNode';
 import { TerminalNode } from 'antlr4ts/tree/TerminalNode';
 import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext } from './generated/Exclaim';
-import { Fail, Assign, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, Carry, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression } from './AST';
+import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, ExprStatement, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression } from './AST';
 import { ExclaimVisitor } from './generated/ExclaimVisitor';
 import { SourceInfo } from './SourceInfo';
 import { CompilerError, ErrorType } from '../CompilerError';
@@ -192,11 +192,11 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
-    visitAssignStatement(ctx: AssignStatementContext): Assign {
-        return new ASTNode(ASTNodeType.Assign, this.getSourceInfo(ctx), {
-            variable: ctx.identifier().accept(this) as Identifier,
-            value: ctx.valueStatement().accept(this) as ValueStatement
-        });
+    visitAssignStatement(ctx: AssignStatementContext): ValueStatement {
+        const statement = ctx.valueStatement().accept(this) as ValueStatement;
+        statement.source = this.getSourceInfo(ctx);
+        statement.assignTo = ctx.identifier().accept(this) as Identifier;
+        return statement;
     }
 
     visitPickStatement(ctx: PickStatementContext): Pick {
@@ -214,8 +214,8 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
-    visitExprStatement(ctx: ExprStatementContext): Carry {
-        return new ASTNode(ASTNodeType.Carry, this.getSourceInfo(ctx), {
+    visitExprStatement(ctx: ExprStatementContext): ExprStatement {
+        return new ASTNode(ASTNodeType.ExprStatement, this.getSourceInfo(ctx), {
             expression: ctx.expr().accept(this) as Expression
         });
     }
