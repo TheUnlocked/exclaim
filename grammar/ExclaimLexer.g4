@@ -14,10 +14,9 @@ FOR: 'for';
 EACH: 'each';
 IN: 'in';
 WHILE: 'while';
-ASSERT: 'assert';
 IF: 'if';
-THEN: 'then';
 ELSE: 'else';
+FAIL: 'fail';
 PICK: 'pick';
 PARSE: 'parse';
 AS: 'as';
@@ -29,6 +28,8 @@ NOT: 'not';
 OF: 'of';
 TRUE: 'true';
 FALSE: 'false';
+AND: 'and';
+OR: 'or';
 
 fragment INTEGER: [0-9]+ ('_'+ [0-9]+)*;
 NUMBER: '-'? INTEGER '.'? INTEGER? ('e' '-'? INTEGER)?;
@@ -73,6 +74,8 @@ ESCAPE_SEQUENCE: '\\' . | '\\x' HEX HEX;
 STRING_CONTENTS: LETTER+;
 STR_OPEN_JS: '{' -> type(OPEN_JS), pushMode(javascriptMode);
 CLOSE_STRING: '"' -> popMode;
+
+COMMENT: '--' .*? '\n' -> skip;
 
 // Welcome to language embedding hell
 mode javascriptMode;

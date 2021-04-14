@@ -2,10 +2,10 @@ import { ErrorNode } from 'antlr4ts/tree/ErrorNode';
 import { ParseTree } from 'antlr4ts/tree/ParseTree';
 import { RuleNode } from 'antlr4ts/tree/RuleNode';
 import { TerminalNode } from 'antlr4ts/tree/TerminalNode';
-import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, AssertStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext } from './generated/Exclaim';
-import { Assert, Assign, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, Carry, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral } from './AST';
+import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext } from './generated/Exclaim';
+import { Fail, Assign, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, Carry, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression } from './AST';
 import { ExclaimVisitor } from './generated/ExclaimVisitor';
-import { SourceInfo } from '../SourceInfo';
+import { SourceInfo } from './SourceInfo';
 import { CompilerError, ErrorType } from '../CompilerError';
 
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
@@ -153,19 +153,16 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
-    visitAssertStatement(ctx: AssertStatementContext): Assert {
-        return new ASTNode(ASTNodeType.Assert, this.getSourceInfo(ctx), {
-            checkExpression: ctx.expr().accept(this) as Expression,
-            elseStatements: this.getStatements(ctx)
-        });
-    }
-
     visitIfStatement(ctx: IfStatementContext): If {
         return new ASTNode(ASTNodeType.If, this.getSourceInfo(ctx), {
             checkExpression: ctx.expr().accept(this) as Expression,
             thenStatements: this.getStatements(ctx.functionBlock(0)),
             elseStatements: this.getStatements(ctx.functionBlock(1))
         });
+    }
+
+    visitFailStatement(ctx: FailStatementContext): Fail {
+        return new ASTNode(ASTNodeType.Fail, this.getSourceInfo(ctx), {});
     }
 
     visitSendStatement(ctx: SendStatementContext): Send {
@@ -211,14 +208,23 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     visitParseStatement(ctx: ParseStatementContext): Parse {
         return new ASTNode(ASTNodeType.Parse, this.getSourceInfo(ctx), {
-            serialized: ctx.expr().accept(this) as Expression,
-            parser: ctx.identifier().text
+            expression: ctx.expr().accept(this) as Expression,
+            parser: ctx.identifier().text,
+            elseStatements: this.getStatements(ctx)
         });
     }
 
     visitExprStatement(ctx: ExprStatementContext): Carry {
         return new ASTNode(ASTNodeType.Carry, this.getSourceInfo(ctx), {
             expression: ctx.expr().accept(this) as Expression
+        });
+    }
+
+    visitAndOrExpr(ctx: AndOrExprContext): BinaryOpExpression {
+        return new ASTNode(ASTNodeType.BinaryOpExpression, this.getSourceInfo(ctx), {
+            lhs: ctx.checkExpr(0).accept(this) as Expression,
+            operator: ctx._op.text as 'and' | 'or',
+            rhs: ctx.checkExpr(1).accept(this) as Expression
         });
     }
 
@@ -288,6 +294,13 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
+    visitJsExpr(ctx: JsExprContext): JavascriptExpression {
+        const fullText = ctx.text;
+        return new ASTNode(ASTNodeType.JavascriptExpression, this.getSourceInfo(ctx), {
+            code: fullText.slice(1, fullText.length - 1)
+        });
+    }
+
     visitList(ctx: ListContext): ListLiteral {
         return new ASTNode(ASTNodeType.ListLiteral, this.getSourceInfo(ctx), {
             values: ctx.expr().map(x => x.accept(this) as Expression)
@@ -350,33 +363,15 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
                 const ESCAPE_TABLE = {
                     n: '\n',
                     t: '\t',
-                    r: '\r',
-                    '\\': '\\',
-                    '{': '{',
-                    '}': '}',
-                    '"': '"',
-                    ' ': ' '
+                    r: '\r'
                 } as { [seq: string]: string };
 
                 switch (escape.length) {
                     case 1:
                         // Single character
-                        if (escape in ESCAPE_TABLE) {
-                            return {
-                                type: 'text',
-                                contents: ESCAPE_TABLE[escape]
-                            };
-                        }
-
-                        this.errors.push(new CompilerError(
-                            ErrorType.InvalidEscapeSequence,
-                            this.getSourceInfo(x.ESCAPE_SEQUENCE()!),
-                            `\\${escape} is not a valid escape sequence`
-                        ));
                         return {
                             type: 'text',
-                            contents: escape,
-                            _fromEscapeSequence: escape
+                            contents: ESCAPE_TABLE[escape] ?? escape
                         };
                     case 3:
                         // hex
@@ -421,7 +416,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     }
 
     visitChildren(node: RuleNode): ASTNode {
-        const firstChildIndex = new Array(node.childCount).fill(undefined).find((_, i) => node.getChild(i) instanceof RuleNode);
+        const firstChildIndex = new Array(node.childCount).fill(undefined).findIndex((_, i) => node.getChild(i) instanceof RuleNode);
         return node.getChild(firstChildIndex).accept(this);
     }
 

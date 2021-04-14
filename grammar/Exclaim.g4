@@ -31,8 +31,8 @@ functionBlock: openBlock (statement NL)+ closeBlock;
 statement
     : FOR EACH identifier IN expr functionBlock #forEachStatement
     | WHILE expr functionBlock #whileStatement
-    | ASSERT expr (ELSE functionBlock)? #assertStatement
-    | IF expr THEN functionBlock (ELSE functionBlock)? #ifStatement
+    | IF expr functionBlock (ELSE functionBlock)? #ifStatement
+    | FAIL #failStatement
     | SEND expr #sendStatement
     | REACT WITH expr #reactStatement
     | REACT TO expr WITH expr #reactToStatement
@@ -43,7 +43,7 @@ statement
 
 valueStatement
     : PICK identifier FROM expr #pickStatement
-    | PARSE expr AS identifier #parseStatement
+    | PARSE expr AS identifier (ELSE functionBlock)? #parseStatement
     | expr #exprStatement
     ;
 
@@ -53,7 +53,8 @@ closeBlock: R_BRACKET NL?;
 expr: checkExpr;
 
 checkExpr
-    : term IS NOT? identifier #checkIsExpr
+    : checkExpr op=(AND | OR) checkExpr #andOrExpr
+    | term IS NOT? identifier #checkIsExpr
     | mathExpr (relationalOperator mathExpr)+ #checkCompareExpr
     | mathExpr #checkPassthrough
     ;
@@ -77,6 +78,7 @@ term
     | identifier L_PAREN ((expr COMMA)* expr)? R_PAREN #invokeExpr
     | literal #literalExpr // literal before lvalue so we capture true/false as literals rather than variables when applicable
     | lvalue #lvalueExpr
+    | embeddedJS #jsExpr
     ;
 
 lvalue
@@ -98,9 +100,9 @@ literal
     | (TRUE | FALSE) #boolLiteral
     ;
 
-list: openBlock ((expr COMMA NL?)* expr)? closeBlock;
+list: openBlock ((expr COMMA NL?)* expr COMMA?)? closeBlock;
 
-dict: openBlock ((objectKey COLON expr COMMA NL?)* expr)? closeBlock;
+dict: openBlock ((objectKey COLON expr COMMA NL?)* objectKey COLON expr COMMA? | COLON) closeBlock;
 
 number: NUMBER | ILLEGAL_NUMBER;
 
@@ -109,11 +111,11 @@ identifier
     | GROUP  | COMMAND | FUNCTION | ON
     | SET    | TO
     | FOR    | EACH    | IN       | WHILE
-    | ASSERT | IF      | THEN     | ELSE
+    | IF     | ELSE    | FAIL
     | PICK   | PARSE   | AS
     | SEND   | REACT   | WITH
     | IS     | NOT     | OF
-    | TRUE   | FALSE
+    | TRUE   | FALSE   | AND      | OR
     | ID // ID at the end
     ;
 

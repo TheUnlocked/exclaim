@@ -2,5 +2,5 @@ export const events = [
     'message',
     'mention',
     'joined',
-    'left',
+    'left'
 ] as const;

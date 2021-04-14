@@ -1,4 +1,5 @@
-import { SourceInfo } from '../SourceInfo';
+import { DiscriminateUnion } from '../util';
+import { SourceInfo } from './SourceInfo';
 
 export enum ASTNodeType {
     Program,
@@ -14,9 +15,9 @@ export enum ASTNodeType {
 
     ForEach,
     While,
-    Assert,
     If,
     Send,
+    Fail,
     React,
     Set,
     Assign,
@@ -33,6 +34,7 @@ export enum ASTNodeType {
 
     OfExpression,
     Identifier,
+    JavascriptExpression,
 
     RawStringLiteral,
     TemplateStringLiteral,
@@ -41,6 +43,8 @@ export enum ASTNodeType {
     ListLiteral,
     DictLiteral
 }
+
+const reverseASTNodeType = Object.fromEntries((Object.keys(ASTNodeType) as (keyof typeof ASTNodeType)[]).map(x => [ASTNodeType[x], x])) as { [Type in ASTNodeType]: keyof typeof ASTNodeType };
 
 interface _ASTNode_Base extends __ASTNode_Prototype {
     type: ASTNodeType;
@@ -144,26 +148,25 @@ export interface While extends _CheckStatement, HasAction {
     type: ASTNodeType.While;
 }
 
-export interface Assert extends _CheckStatement {
-    type: ASTNodeType.Assert;
-    elseStatements: Statement[] | undefined;
-}
-
 export interface If extends _CheckStatement {
     type: ASTNodeType.If;
     thenStatements: Statement[];
     elseStatements: Statement[] | undefined;
 }
 
-export type CheckStatement = While | Assert | If;
+export type CheckStatement = While | Fail | If;
 
 export function isCheckStatement(node: ASTNode): node is CheckStatement {
     switch (node.type) {
-        case ASTNodeType.While: case ASTNodeType.Assert: case ASTNodeType.If:
+        case ASTNodeType.While: case ASTNodeType.Fail: case ASTNodeType.If:
             return true;
         default:
             return false;
     }
+}
+
+export interface Fail extends _ASTNode_Base {
+    type: ASTNodeType.Fail;
 }
 
 export interface Send extends _ASTNode_Base {
@@ -198,7 +201,8 @@ export interface Pick extends _ASTNode_Base {
 export interface Parse extends _ASTNode_Base {
     type: ASTNodeType.Parse;
     parser: string;
-    serialized: Expression;
+    expression: Expression;
+    elseStatements: Statement[] | undefined;
 }
 
 export interface Carry extends _ASTNode_Base {
@@ -219,13 +223,13 @@ export function isValueStatement(node: ASTNode): node is ValueStatement {
 
 export type Statement =
     Assign | Set   | ForEach | While |
-    Assert | If    | Pick    | Parse |
+    Fail | If    | Pick    | Parse |
     Send   | React | Carry;
 
 export function isStatement(node: ASTNode): node is Statement {
     switch (node.type) {
         case ASTNodeType.Assign: case ASTNodeType.Set:   case ASTNodeType.ForEach: case ASTNodeType.While:
-        case ASTNodeType.Assert: case ASTNodeType.If:    case ASTNodeType.Pick:    case ASTNodeType.Parse:
+        case ASTNodeType.Fail: case ASTNodeType.If:    case ASTNodeType.Pick:    case ASTNodeType.Parse:
         case ASTNodeType.Send:   case ASTNodeType.React: case ASTNodeType.Carry:
             return true;
         default:
@@ -259,7 +263,7 @@ export interface RelationalExpression extends _ASTNode_Base {
 
 export interface BinaryOpExpression extends _ASTNode_Base {
     type: ASTNodeType.BinaryOpExpression;
-    operator: '+' | '-' | '*' | '/';
+    operator: '+' | '-' | '*' | '/' | 'and' | 'or';
     lhs: Expression;
     rhs: Expression;
 }
@@ -274,6 +278,11 @@ export interface InvokeExpression extends _ASTNode_Base {
     type: ASTNodeType.InvokeExpression;
     function: Identifier;
     arguments: Expression[];
+}
+
+export interface JavascriptExpression extends _ASTNode_Base {
+    type: ASTNodeType.JavascriptExpression;
+    code: string;
 }
 
 export interface OfExpression extends _ASTNode_Base {
@@ -356,7 +365,7 @@ export type Expression =
     UnaryOpExpression | OfExpression          | Identifier |
     StringLiteral     | TemplateStringLiteral | NumberLiteral |
     BooleanLiteral    | ListLiteral           | DictLiteral |
-    InvokeExpression;
+    InvokeExpression  | JavascriptExpression;
 
 export function isExpression(node: ASTNode): node is Expression {
     switch (node.type) {
@@ -364,7 +373,7 @@ export function isExpression(node: ASTNode): node is Expression {
         case ASTNodeType.UnaryOpExpression: case ASTNodeType.OfExpression:          case ASTNodeType.Identifier:
         case ASTNodeType.RawStringLiteral:  case ASTNodeType.TemplateStringLiteral: case ASTNodeType.NumberLiteral:
         case ASTNodeType.BooleanLiteral:    case ASTNodeType.ListLiteral:           case ASTNodeType.DictLiteral:
-        case ASTNodeType.InvokeExpression:
+        case ASTNodeType.InvokeExpression:  case ASTNodeType.JavascriptExpression:
             return true;
         default:
             return false;
@@ -387,23 +396,6 @@ function createASTNode<
     };
 }
 
-interface __ASTNode_Prototype {
-    readonly children: readonly ASTNode[];
-    walk(walkerFn: (node: ASTNode) => void): void;
-}
-
-const __ASTNode_prototype = {
-    get children() {
-        return getChildren(this);
-    },
-    walk(walkerFn: (node: ASTNode) => void) {
-        walkerFn(this);
-        for (const child of this.children) {
-            child.walk(walkerFn);
-        }
-    }
-} as ASTNode;
-
 export const ASTNode = createASTNode as unknown as {
     new <
         Type extends ASTNodeType,
@@ -415,22 +407,21 @@ export const ASTNode = createASTNode as unknown as {
     ): Node & typeof __ASTNode_prototype;
     prototype: typeof __ASTNode_prototype;
 };
-Object.assign(ASTNode.prototype, __ASTNode_prototype);
 
 export type ASTNode =
     Program            | FileImport            | ModuleImport       | DeclareVariable |
     GroupDefinition    | CommandDefinition     | FunctionDefinition | EventListenerDefinition |
     Assign             | Set                   | ForEach            | While |
-    Assert             | If                    | Pick               | Parse |
+    Fail               | If                    | Pick               | Parse |
     Send               | React                 | IsExpression       | RelationalExpression |
     BinaryOpExpression | UnaryOpExpression     | OfExpression       | Identifier |
     RawStringLiteral   | TemplateStringLiteral | NumberLiteral      | BooleanLiteral |
-    ListLiteral        | DictLiteral           | Carry              | InvokeExpression;
+    ListLiteral        | DictLiteral           | Carry              | InvokeExpression |
+    JavascriptExpression;
 
 function getChildren(node: ASTNode): readonly ASTNode[] {
     switch (node.type) {
         case ASTNodeType.Program: return node.declarations;
-        // case ASTNodeType.FileImport: return [];
         case ASTNodeType.ModuleImport: return node.members;
         case ASTNodeType.DeclareVariable: return [node.name, node.value];
         case ASTNodeType.GroupDefinition: return [node.name, ...node.members];
@@ -447,10 +438,9 @@ function getChildren(node: ASTNode): readonly ASTNode[] {
                 ...node.statements
             ];
         case ASTNodeType.EventListenerDefinition: return node.statements;
-        case ASTNodeType.Assert: return [node.checkExpression, ...(node.elseStatements ?? [])];
         case ASTNodeType.If: return [node.checkExpression, ...node.thenStatements, ...(node.elseStatements ?? [])];
         case ASTNodeType.Pick: return [node.collection];
-        case ASTNodeType.Parse: return [node.serialized];
+        case ASTNodeType.Parse: return [node.expression];
         case ASTNodeType.Carry: return [node.expression];
         case ASTNodeType.Send: return [node.message];
         case ASTNodeType.React: return [...(node.targetMessage ? [node.targetMessage] : []), node.reaction];
@@ -460,13 +450,77 @@ function getChildren(node: ASTNode): readonly ASTNode[] {
         case ASTNodeType.UnaryOpExpression: return [node.expression];
         case ASTNodeType.OfExpression: return [...node.referenceChain, node.root];
         case ASTNodeType.InvokeExpression: return [node.function, ...node.arguments];
-        // case ASTNodeType.Identifier: return [];
-        // case ASTNodeType.RawStringLiteral: return [];
-        // case ASTNodeType.TemplateStringLiteral: return [];
-        // case ASTNodeType.NumberLiteral: return [];
-        // case ASTNodeType.BooleanLiteral: return [];
         case ASTNodeType.ListLiteral: return node.values;
         case ASTNodeType.DictLiteral: return node.keys.reduce((a, b, i) => a.concat(b, node.values[i]), [] as ASTNode[]);
         default: return [];
     }
 }
+
+type ASTListener_EnterExitFunctions = {
+    [Type in keyof typeof ASTNodeType as `enter${Type}` | `exit${Type}`]?: (node: ASTNodeFromType<typeof ASTNodeType[Type]>) => void;
+};
+
+export interface ASTListener extends ASTListener_EnterExitFunctions {
+    enterNode?(node: ASTNode): void;
+    exitNode?(node: ASTNode): void;
+}
+
+function walk(this: ASTNode, listener: ASTListener) {
+    listener.enterNode?.(this);
+    // @ts-ignore
+    listener[`enter${reverseASTNodeType[this.type]}`]?.(this);
+    for (const child of this.children) {
+        child.walk(listener);
+    }
+    // @ts-ignore
+    listener[`exit${reverseASTNodeType[this.type]}`]?.(this);
+    listener.exitNode?.(this);
+}
+
+type ASTNodeFromType<T extends ASTNodeType> = DiscriminateUnion<ASTNode, 'type', T>;
+
+type ASTVisitor_VisitFunctions<T> = {
+    [Type in keyof typeof ASTNodeType as `visit${Type}`]?: (node: ASTNodeFromType<typeof ASTNodeType[Type]>) => T;
+};
+
+export interface ASTVisitor<T> extends ASTVisitor_VisitFunctions<T> {
+    visit(node: ASTNode): T;
+    visitChildren(children: readonly ASTNode[]): T;
+}
+
+export abstract class BaseASTVisitor<T> implements ASTVisitor<T> {
+    visit(node: ASTNode): T {
+        return node.accept(this);
+    }
+    visitChildren(children: readonly ASTNode[]): T {
+        if (children.length === 0) {
+            throw new Error('Method not implemented.');
+        }
+        return children.map(x => x.accept(this))[0]!;
+    }
+}
+
+function accept<T>(this: ASTNode, visitor: ASTVisitor<T>) {
+    // @ts-ignore
+    const visitorFn: ((node: ASTNode) => T) | undefined = visitor[`visit${reverseASTNodeType[this.type]}`];
+    if (visitorFn) {
+        return visitorFn(this);
+    }
+    return visitor.visitChildren(this.children);
+}
+
+interface __ASTNode_Prototype {
+    readonly children: readonly ASTNode[];
+    walk: typeof walk;
+    accept: typeof accept;
+}
+
+const __ASTNode_prototype = {
+    get children() {
+        return getChildren(this);
+    },
+    walk,
+    accept
+} as ASTNode;
+
+Object.assign(ASTNode.prototype, __ASTNode_prototype);

@@ -1,6 +1,7 @@
-import { SourceInfo } from './SourceInfo';
+import { SourceInfo } from './parser/SourceInfo';
 
 export enum ErrorType {
+    InternalError = -1,
     LexError,
     ParseError,
     NoImportTemplateString,

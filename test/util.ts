@@ -26,3 +26,10 @@ export function generateAST(input: string, type: RuleNames) {
     }
     return ast;
 }
+
+export const KEYWORDS = [
+    'import', 'from', 'data', 'temp', 'group', 'command',
+    'function', 'on', 'set', 'to', 'for', 'each', 'in', 'while',
+    'assert', 'if', 'then', 'else', 'pick', 'parse', 'as',
+    'send', 'react', 'with', 'is', 'not', 'of', 'true', 'false'
+];
