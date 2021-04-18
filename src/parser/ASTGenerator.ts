@@ -3,23 +3,46 @@ import { ParseTree } from 'antlr4ts/tree/ParseTree';
 import { RuleNode } from 'antlr4ts/tree/RuleNode';
 import { TerminalNode } from 'antlr4ts/tree/TerminalNode';
 import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext } from './generated/Exclaim';
-import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, ExprStatement, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression } from './AST';
+import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, ExprStatement, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression, Program } from './AST';
 import { ExclaimVisitor } from './generated/ExclaimVisitor';
 import { SourceInfo } from './SourceInfo';
 import { CompilerError, ErrorType } from '../CompilerError';
+import { SemiRequired } from '../util';
+
+export type ASTGeneratorOptions = {
+    sourceFile: string;
+    pushError(error: CompilerError): void;
+    /** 
+     * If a file should not be imported (e.g. because the file has already been imported),
+     * `importFile` should return undefined.
+     * 
+     * If importing should be not be handled by the `ASTGenerator`, `importFile` should be excluded
+     * from the options object.
+     * 
+     * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
+     */
+    importFile?: (filename: string) => ProgramContext | undefined;
+    /**
+     * Whether or not `FileImport` nodes should be emitted in the AST. Defaults to true if importFile is provided, false otherwise.
+     * 
+     * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
+     */
+    emitFileImportNode?: boolean;
+}
 
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
-    sourceFile: string = '';
+    options: SemiRequired<ASTGeneratorOptions, 'emitFileImportNode'>;
 
-    errors = [] as CompilerError[];
-
-    constructor() {
+    constructor(options: ASTGeneratorOptions) {
+        const opt = {...options};
+        opt.emitFileImportNode ??= opt.importFile == null;
+        this.options = opt as ASTGenerator['options'];
     }
 
     private getSourceInfo(ctx: ParseTree) {
         return {
             ctx,
-            file: this.sourceFile
+            file: this.options.sourceFile
         } as SourceInfo;
     }
 
@@ -36,15 +59,39 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     }
 
     visitProgram(ctx: ProgramContext) {
+        const declarations = [] as Declaration[];
+        for (const declCtx of ctx.topLevelDeclaration()) {
+            const decl = declCtx.accept(this) as Declaration;
+            if (decl.type === ASTNodeType.FileImport) {
+                if (this.options.emitFileImportNode) {
+                    declarations.push(decl);
+                }
+                if (this.options.importFile) {
+                    const astGen = new ASTGenerator({...this.options, sourceFile: decl.filename});
+                    const imported = this.options.importFile(decl.filename)?.accept(astGen) as Program | undefined;
+                    declarations.push(...imported?.declarations ?? []);
+                }
+                else if (!this.options.emitFileImportNode) {
+                    this.options.pushError(new CompilerError(
+                        ErrorType.FileImportNotSupported,
+                        decl.source,
+                        'File import is not supported'
+                    ));
+                }
+            }
+            else {
+                declarations.push(declCtx.accept(this) as Declaration);
+            }
+        }
         return new ASTNode(ASTNodeType.Program, this.getSourceInfo(ctx), {
-            declarations: ctx.topLevelDeclaration().map(x => x.accept(this) as Declaration)
+            declarations
         });
     }
 
     getImportFilename(ctx: StringContext) {
         const str = ctx.accept(this) as StringLiteral;
         if (str.type === ASTNodeType.TemplateStringLiteral) {
-            this.errors.push(new CompilerError(
+            this.options.pushError(new CompilerError(
                 ErrorType.NoImportTemplateString,
                 this.getSourceInfo(ctx),
                 'Import declarations cannot use template strings'
@@ -316,7 +363,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     visitNumber(ctx: NumberContext): NumberLiteral {
         if (ctx.ILLEGAL_NUMBER()) {
-            this.errors.push(new CompilerError(
+            this.options.pushError(new CompilerError(
                 ErrorType.InvalidNumber,
                 this.getSourceInfo(ctx),
                 'Invalid number syntax; this may be because of invalid numeric seperators (underscores) or a decimal point in an exponentiation term'

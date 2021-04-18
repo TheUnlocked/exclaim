@@ -7,7 +7,8 @@ export enum ErrorType {
     NoImportTemplateString,
     ExpressionCannotProduceBoolean,
     InvalidEscapeSequence,
-    InvalidNumber
+    InvalidNumber,
+    FileImportNotSupported
 }
 
 export class CompilerError extends Error {

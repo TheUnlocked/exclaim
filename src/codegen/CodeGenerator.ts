@@ -1,4 +1,4 @@
-import { CompilerError, ErrorType } from '../CompilerError';
+import { CompilerError } from '../CompilerError';
 import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program } from '../parser/AST';
 import { zip } from '../util';
 
@@ -10,8 +10,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitFileImport(ast: FileImport): string {
-        // Will probably want to handle this in an earlier phase, maybe during parsing.
-        throw new Error('Method not implemented');
+        // We don't do anything with this node here, an earlier processing stage should've handled it.
+        // Alternatively it could make sense to emit require(filename)... maybe a configuration?
+        return "";
     }
 
     visitModuleImport(ast: ModuleImport): string {
