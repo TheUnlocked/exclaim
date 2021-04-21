@@ -1,6 +1,6 @@
 import { CharStreams, CommonTokenStream, ConsoleErrorListener, RuleContext } from 'antlr4ts';
 import { CompilerError, ErrorType } from '../src/CompilerError';
-import { ASTGenerator } from '../src/parser/ASTGenerator';
+import { ASTGenerator, ASTGeneratorOptions } from '../src/parser/ASTGenerator';
 import { Exclaim } from '../src/parser/generated/Exclaim';
 import { ExclaimLexer } from '../src/parser/generated/ExclaimLexer';
 
@@ -19,10 +19,16 @@ export function generateAST(input: string, type: RuleNames) {
         throw new CompilerError(ErrorType.ParseError, null!, msg);
     } });
     const parseTree = parser[type]();
-    const astGenerator = new ASTGenerator();
+
+    const errors = [] as CompilerError[];
+    const astGenOptions = {
+        pushError: e => errors.push(e),
+        sourceFile: ''
+    } as ASTGeneratorOptions;
+    const astGenerator = new ASTGenerator(astGenOptions);
     const ast = astGenerator.visit(parseTree);
-    if (astGenerator.errors.length > 0) {
-        throw astGenerator.errors[0];
+    if (errors.length > 0) {
+        throw errors[0];
     }
     return ast;
 }

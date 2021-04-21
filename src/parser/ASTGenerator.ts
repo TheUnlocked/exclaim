@@ -12,29 +12,29 @@ import { SemiRequired } from '../util';
 export type ASTGeneratorOptions = {
     sourceFile: string;
     pushError(error: CompilerError): void;
-    /** 
+    /**
      * If a file should not be imported (e.g. because the file has already been imported),
      * `importFile` should return undefined.
-     * 
+     *
      * If importing should be not be handled by the `ASTGenerator`, `importFile` should be excluded
      * from the options object.
-     * 
+     *
      * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
      */
     importFile?: (filename: string) => ProgramContext | undefined;
     /**
      * Whether or not `FileImport` nodes should be emitted in the AST. Defaults to true if importFile is provided, false otherwise.
-     * 
+     *
      * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
      */
     emitFileImportNode?: boolean;
-}
+};
 
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     options: SemiRequired<ASTGeneratorOptions, 'emitFileImportNode'>;
 
     constructor(options: ASTGeneratorOptions) {
-        const opt = {...options};
+        const opt = { ...options };
         opt.emitFileImportNode ??= opt.importFile == null;
         this.options = opt as ASTGenerator['options'];
     }
@@ -67,7 +67,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
                     declarations.push(decl);
                 }
                 if (this.options.importFile) {
-                    const astGen = new ASTGenerator({...this.options, sourceFile: decl.filename});
+                    const astGen = new ASTGenerator({ ...this.options, sourceFile: decl.filename });
                     const imported = this.options.importFile(decl.filename)?.accept(astGen) as Program | undefined;
                     declarations.push(...imported?.declarations ?? []);
                 }

@@ -40,6 +40,8 @@
         "@typescript-eslint/lines-between-class-members": "off",
         "no-plusplus": "off",
         "max-classes-per-file": "off",
-        "default-case": "off"
+        "default-case": "off",
+        "no-return-assign": "off",
+        "prefer-template": "off"
     }
 }

@@ -20,7 +20,7 @@ export enum ASTNodeType {
     React,
     Fail,
     Set,
-    
+
     Pick,
     Parse,
     ExprStatement,
@@ -153,11 +153,11 @@ export interface If extends _CheckStatement {
     elseStatements: Statement[] | undefined;
 }
 
-export type CheckStatement = While | Fail | If;
+export type CheckStatement = While | If;
 
 export function isCheckStatement(node: ASTNode): node is CheckStatement {
     switch (node.type) {
-        case ASTNodeType.While: case ASTNodeType.Fail: case ASTNodeType.If:
+        case ASTNodeType.While: case ASTNodeType.If:
             return true;
         default:
             return false;
@@ -377,6 +377,8 @@ export function isExpression(node: ASTNode): node is Expression {
     }
 }
 
+let __astNodeIdIterator = 0;
+
 function createASTNode<
     Type extends ASTNodeType,
     Node extends ASTNode & { type: Type }
@@ -387,6 +389,7 @@ function createASTNode<
     node: Omit<Node, 'type' | 'source' | keyof __ASTNode_Prototype>
 ) {
     return {
+        id: ++__astNodeIdIterator,
         type,
         source,
         ...node
@@ -458,7 +461,9 @@ type ASTListener_EnterExitFunctions = {
 };
 
 export interface ASTListener extends ASTListener_EnterExitFunctions {
+    /** `enterNode` will be called before the specific enter node handler */
     enterNode?(node: ASTNode): void;
+    /** `exitNode` will be called before the specific exit node handler */
     exitNode?(node: ASTNode): void;
 }
 
@@ -469,9 +474,9 @@ function walk(this: ASTNode, listener: ASTListener) {
     for (const child of this.children) {
         child.walk(listener);
     }
+    listener.exitNode?.(this);
     // @ts-ignore
     listener[`exit${reverseASTNodeType[this.type]}`]?.(this);
-    listener.exitNode?.(this);
 }
 
 type ASTNodeFromType<T extends ASTNodeType> = DiscriminateUnion<ASTNode, 'type', T>;
@@ -507,6 +512,8 @@ function accept<T>(this: ASTNode, visitor: ASTVisitor<T>) {
 }
 
 interface __ASTNode_Prototype {
+    /** Invariant: if a.id < b.id, and a and b are in separate statements in the same block, a comes before b */
+    id: number;
     readonly children: readonly ASTNode[];
     walk: typeof walk;
     accept: typeof accept;

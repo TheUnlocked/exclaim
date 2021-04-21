@@ -12,7 +12,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     visitFileImport(ast: FileImport): string {
         // We don't do anything with this node here, an earlier processing stage should've handled it.
         // Alternatively it could make sense to emit require(filename)... maybe a configuration?
-        return "";
+        return '';
     }
 
     visitModuleImport(ast: ModuleImport): string {
@@ -111,9 +111,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         const segments = [] as string[];
         for (let i = 0; ast.operators.length; i++) {
             const op = ast.operators[i] as string;
-            segments.push(`(${ast.expressions[i].accept(this)})${op}(${ast.expressions[i + 1].accept(this)})`)
+            segments.push(`(${ast.expressions[i].accept(this)})${op}(${ast.expressions[i + 1].accept(this)})`);
         }
-        return `(${segments.join(')&&(')})`
+        return `(${segments.join(')&&(')})`;
     }
 
     visitBinaryOpExpression(ast: BinaryOpExpression): string {
@@ -163,9 +163,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 }
                 return source.slice(1, source.length - 1).replace(/`/g, '\\`');
             }
-            else {
-                return `\${${contents}}`;
-            }
+            return `\${${contents}}`;
         }).join('')}\``;
     }
 

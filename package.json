@@ -2,7 +2,7 @@
   "scripts": {
     "build": "npm run antlr4 && npm run typecheck && echo 'Building not yet implemented!'",
     "test": "mocha",
-    "lint": "eslint --ext .ts",
+    "lint": "eslint -c .eslintrc --ext .ts src test",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc --incremental --noEmit",
     "antlr4": "antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4"
