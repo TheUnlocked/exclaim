@@ -1,17 +1,38 @@
 import { CompilerError } from '../CompilerError';
-import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program } from '../parser/AST';
+import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement } from '../parser/AST';
+import { SemanticInfo } from '../semantic/SemanticInfo';
 import { zip } from '../util';
 
+export interface CodeGeneratorOptions {
+    semanticInfo: SemanticInfo;
+    pushError(error: CompilerError): void;
+    fileImport: 'no-emit' | 'require' | ((file: string) => string);
+}
+
 export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<string> {
-    errors = [] as CompilerError[];
+
+    semanticInfo: SemanticInfo;
+    pushError: (error: CompilerError) => void;
+    fileImport: 'no-emit' | 'require' | ((file: string) => string);
+
+    constructor(options: CodeGeneratorOptions) {
+        super();
+        this.semanticInfo = options.semanticInfo;
+        this.pushError = options.pushError;
+        this.fileImport = options.fileImport;
+    }
 
     visitProgram(ast: Program): string {
         throw new Error('Method not implemented');
     }
 
     visitFileImport(ast: FileImport): string {
-        // We don't do anything with this node here, an earlier processing stage should've handled it.
-        // Alternatively it could make sense to emit require(filename)... maybe a configuration?
+        if (typeof this.fileImport === 'function') {
+            return this.fileImport(ast.filename);
+        }
+        else if (this.fileImport === 'require') {
+            return `require(${ast.filename});`;
+        }
         return '';
     }
 
@@ -44,7 +65,11 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitFunctionDefinition(ast: FunctionDefinition): string {
-        throw new Error('Method not implemented');
+        const returnStatement = ast.statements[ast.statements.length - 1];
+        const returnStatementCode = isValueStatement(returnStatement) && !returnStatement.assignTo ? 'return it;' : '';
+        const paramsCode = ast.parameters.map(x => x.name === '' ? 'it' : x.accept(this)).join(',');
+        const restParamCode = ast.restParamVariant === 'list' ? `,...${ast.restParam?.accept(this) ?? 'it'}` : '';
+        return `async function ${ast.name.accept(this)}(${paramsCode}${restParamCode}){${this.statements(ast.statements)}${returnStatementCode}}`;
     }
 
     visitEventListenerDefinition(ast: EventListenerDefinition): string {
@@ -77,7 +102,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitFail(ast: Fail): string {
-        throw new Error('Method not implemented');
+        return '$fail();';
     }
 
     private assignment(ast: ValueStatement | string, exprCode: string): string {
@@ -134,7 +159,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitInvokeExpression(ast: InvokeExpression): string {
-        return `${ast.function.accept(this)}(${ast.arguments.map(x => x.accept(this)).join(',')})`;
+        return `await ${ast.function.accept(this)}(${ast.arguments.map(x => x.accept(this)).join(',')})`;
     }
 
     visitOfExpression(ast: OfExpression): string {

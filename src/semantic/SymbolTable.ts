@@ -11,6 +11,7 @@ export class SymbolTable {
     constructor(parent?: SymbolTable, providedFields?: Identifier[], type: SymbolType = 'local') {
         this.parent = parent;
         this.type = type;
+        // Provided fields are forced to be added to the ST, even if a parent local ST contains a field with the same name.
         providedFields?.forEach(x => this.fields[x.name] = x);
     }
 

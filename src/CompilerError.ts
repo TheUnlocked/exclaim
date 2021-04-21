@@ -8,7 +8,11 @@ export enum ErrorType {
     ExpressionCannotProduceBoolean,
     InvalidEscapeSequence,
     InvalidNumber,
-    FileImportNotSupported
+    FileImportNotSupported,
+    MultipleImplicitParameters,
+    DuplicateParameterName,
+    ShadowingMagicParameter,
+    ShadowingLocal
 }
 
 export class CompilerError extends Error {

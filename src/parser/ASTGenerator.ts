@@ -31,18 +31,22 @@ export type ASTGeneratorOptions = {
 };
 
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
-    options: SemiRequired<ASTGeneratorOptions, 'emitFileImportNode'>;
+    sourceFile: string;
+    pushError: (error: CompilerError) => void;
+    importFile?: (filename: string) => ProgramContext | undefined;
+    emitFileImportNode: boolean;
 
     constructor(options: ASTGeneratorOptions) {
-        const opt = { ...options };
-        opt.emitFileImportNode ??= opt.importFile == null;
-        this.options = opt as ASTGenerator['options'];
+        this.sourceFile = options.sourceFile;
+        this.pushError = options.pushError;
+        this.importFile = options.importFile;
+        this.emitFileImportNode = options.emitFileImportNode ?? options.importFile == null;
     }
 
     private getSourceInfo(ctx: ParseTree) {
         return {
             ctx,
-            file: this.options.sourceFile
+            file: this.sourceFile
         } as SourceInfo;
     }
 
@@ -63,16 +67,16 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         for (const declCtx of ctx.topLevelDeclaration()) {
             const decl = declCtx.accept(this) as Declaration;
             if (decl.type === ASTNodeType.FileImport) {
-                if (this.options.emitFileImportNode) {
+                if (this.emitFileImportNode) {
                     declarations.push(decl);
                 }
-                if (this.options.importFile) {
-                    const astGen = new ASTGenerator({ ...this.options, sourceFile: decl.filename });
-                    const imported = this.options.importFile(decl.filename)?.accept(astGen) as Program | undefined;
+                if (this.importFile) {
+                    const astGen = new ASTGenerator({ ...this, sourceFile: decl.filename });
+                    const imported = this.importFile(decl.filename)?.accept(astGen) as Program | undefined;
                     declarations.push(...imported?.declarations ?? []);
                 }
-                else if (!this.options.emitFileImportNode) {
-                    this.options.pushError(new CompilerError(
+                else if (!this.emitFileImportNode) {
+                    this.pushError(new CompilerError(
                         ErrorType.FileImportNotSupported,
                         decl.source,
                         'File import is not supported'
@@ -91,7 +95,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     getImportFilename(ctx: StringContext) {
         const str = ctx.accept(this) as StringLiteral;
         if (str.type === ASTNodeType.TemplateStringLiteral) {
-            this.options.pushError(new CompilerError(
+            this.pushError(new CompilerError(
                 ErrorType.NoImportTemplateString,
                 this.getSourceInfo(ctx),
                 'Import declarations cannot use template strings'
@@ -363,7 +367,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     visitNumber(ctx: NumberContext): NumberLiteral {
         if (ctx.ILLEGAL_NUMBER()) {
-            this.options.pushError(new CompilerError(
+            this.pushError(new CompilerError(
                 ErrorType.InvalidNumber,
                 this.getSourceInfo(ctx),
                 'Invalid number syntax; this may be because of invalid numeric seperators (underscores) or a decimal point in an exponentiation term'

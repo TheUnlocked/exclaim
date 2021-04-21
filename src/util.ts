@@ -18,3 +18,7 @@ export function zip<T, U, V = [T, U]>(arr1: T[], arr2: U[], zipper?: (a: T, b: U
     }
     return arr;
 }
+
+export function optionToList<T>(...args: T[]): NonNullable<T>[] {
+    return args.filter((x): x is NonNullable<T> => x != null);
+}
