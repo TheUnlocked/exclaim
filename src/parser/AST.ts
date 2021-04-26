@@ -72,9 +72,13 @@ export interface DeclareVariable extends _ASTNode_Base {
     variant: 'data' | 'temp';
     name: Identifier;
     value: LiteralExpression;
+} 
+
+interface _GroupableDefinition extends _ASTNode_Base {
+    group?: GroupDefinition;
 }
 
-export interface GroupDefinition extends _ASTNode_Base {
+export interface GroupDefinition extends _GroupableDefinition {
     type: ASTNodeType.GroupDefinition;
     name: Identifier;
     members: GroupableDefinition[];
@@ -84,12 +88,12 @@ interface HasAction {
     statements: Statement[];
 }
 
-export interface EventListenerDefinition extends _ASTNode_Base, HasAction {
+export interface EventListenerDefinition extends _GroupableDefinition, HasAction {
     type: ASTNodeType.EventListenerDefinition;
     event: string;
 }
 
-interface _FunctionLikeDefinition extends _ASTNode_Base, HasAction {
+interface _FunctionLikeDefinition extends _GroupableDefinition, HasAction {
     name: Identifier;
     parameters: Identifier[];
     restParamVariant: 'none' | 'string' | 'list';
@@ -488,6 +492,8 @@ type ASTVisitor_VisitFunctions<T> = {
 export interface ASTVisitor<T> extends ASTVisitor_VisitFunctions<T> {
     visit(node: ASTNode): T;
     visitChildren(children: readonly ASTNode[]): T;
+    beforeVisit?: (node: ASTNode) => void;
+    afterVisit?: (node: ASTNode) => void;
 }
 
 export abstract class BaseASTVisitor<T> implements ASTVisitor<T> {
@@ -503,12 +509,15 @@ export abstract class BaseASTVisitor<T> implements ASTVisitor<T> {
 }
 
 function accept<T>(this: ASTNode, visitor: ASTVisitor<T>) {
+    visitor.beforeVisit?.(this);
     // @ts-ignore
     const visitorFn: ((node: ASTNode) => T) | undefined = visitor[`visit${reverseASTNodeType[this.type]}`];
     if (visitorFn) {
         return visitorFn(this);
     }
-    return visitor.visitChildren(this.children);
+    const result = visitor.visitChildren(this.children);
+    visitor.afterVisit?.(this);
+    return result;
 }
 
 interface __ASTNode_Prototype {

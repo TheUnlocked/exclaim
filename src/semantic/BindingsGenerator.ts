@@ -1,8 +1,8 @@
 import { CompilerError, ErrorType } from '../CompilerError';
-import { ASTListener, ASTNode, ASTNodeType, CommandDefinition, EventListenerDefinition, ForEach, FunctionDefinition, Identifier, If, isValueStatement, While } from '../parser/AST';
+import { ASTListener, ASTNode, ASTNodeType, CommandDefinition, DeclareVariable, EventListenerDefinition, ForEach, FunctionDefinition, Identifier, If, isValueStatement, While } from '../parser/AST';
 import { optionToList } from '../util';
 import { SemanticInfo } from './SemanticInfo';
-import { SymbolTable } from './SymbolTable';
+import { SymbolInfo, SymbolTable, SymbolType } from './SymbolTable';
 
 // This cache will always obey the ASTNode id invariant since
 // semantically builtins are always created at the start of a block,
@@ -22,6 +22,14 @@ function builtins(names: string[]) {
     return names.map(x => builtin(x));
 }
 
+function toSymbol(type: SymbolType, identifier: Identifier) {
+    return { type, identifier };
+}
+
+function toSymbols(type: SymbolType, identifiers: Identifier[] | undefined) {
+    return identifiers?.map(x => toSymbol(type, x));
+}
+
 export interface BindingsGeneratorOptions {
     semanticInfo: SemanticInfo;
     pushError(error: CompilerError): void;
@@ -37,7 +45,7 @@ export class BindingsGenerator implements ASTListener {
     constructor(options: BindingsGeneratorOptions) {
         this.info = options.semanticInfo;
         this.pushError = options.pushError;
-        this.currentST = new SymbolTable(undefined, builtins(options.globalFields), 'global');
+        this.currentST = new SymbolTable(undefined, toSymbols('const', builtins(options.globalFields)));
         this.info.rootSymbolTable = this.currentST;
     }
 
@@ -46,13 +54,17 @@ export class BindingsGenerator implements ASTListener {
      * @param ast The `ASTNode` associated with the new symbol table
      * @param fields 
      */
-    pushST(ast: ASTNode, fields?: Identifier[]) {
-        this.currentST = new SymbolTable(this.currentST, fields);
+    pushST(ast: ASTNode, fields?: Identifier[], type: SymbolType = 'local') {
+        this.currentST = new SymbolTable(this.currentST, toSymbols(type, fields));
         this.info.symbolTables[ast.id] = this.currentST;
     }
 
     popST() {
         this.currentST = this.currentST.parent!;
+    }
+
+    enterDeclareVariable(ast: DeclareVariable) {
+        this.currentST.addField({ type: ast.variant, identifier: ast.name });
     }
 
     private getParams(ast: CommandDefinition | FunctionDefinition) {
@@ -131,10 +143,10 @@ export class BindingsGenerator implements ASTListener {
     enterNode(ast: ASTNode) {
         if (isValueStatement(ast)) {
             if (ast.assignTo) {
-                this.currentST.addField(ast.assignTo);
+                this.currentST.addField(toSymbol('local', ast.assignTo));
             }
             else {
-                this.currentST.addField(builtin('it'));
+                this.currentST.addField(toSymbol('local', builtin('it')));
             }
         }
     }

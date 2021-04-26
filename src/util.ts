@@ -22,3 +22,18 @@ export function zip<T, U, V = [T, U]>(arr1: T[], arr2: U[], zipper?: (a: T, b: U
 export function optionToList<T>(...args: T[]): NonNullable<T>[] {
     return args.filter((x): x is NonNullable<T> => x != null);
 }
+
+/** While this function should be safe, because of the use of `eval`, is it discouraged to use this function with unsanitized user input. */
+export function isValidVariableName(str: string) {
+    // Avoid code injection (just in case)
+    if (!/^[\p{L}\p{Nl}_$][\p{L}\p{Nl}\p{Nd}\p{Mn}\p{Mc}\p{Pc}_$]*$/u.test(str)) {
+        return false;
+    }
+    try {
+        eval(`let ${str};`);
+        return !(str in globalThis);
+    }
+    catch (e) {
+        return false;
+    }
+}

@@ -135,11 +135,23 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
+    currentGroup?: GroupDefinition;
+    pushGroup(groupDef: GroupDefinition) {
+        this.currentGroup = groupDef;
+    }
+    popGroup() {
+        this.currentGroup = this.currentGroup?.group;
+    }
+
     visitGroupDeclaration(ctx: GroupDeclarationContext): GroupDefinition {
-        return new ASTNode(ASTNodeType.GroupDefinition, this.getSourceInfo(ctx), {
+        const group = new ASTNode(ASTNodeType.GroupDefinition, this.getSourceInfo(ctx), {
             name: ctx.identifier().accept(this) as Identifier,
-            members: ctx.groupBlock().blockDeclaration().map(x => x.accept(this) as GroupableDefinition)
+            members: []
         });
+        this.pushGroup(group);
+        group.members = ctx.groupBlock().blockDeclaration().map(x => x.accept(this) as GroupableDefinition);
+        this.popGroup();
+        return group;
     }
 
     visitCommandDeclaration(ctx: CommandDeclarationContext): CommandDefinition {
@@ -156,6 +168,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         }
 
         return new ASTNode(ASTNodeType.CommandDefinition, this.getSourceInfo(ctx), {
+            group: this.currentGroup,
             name: ctx.identifier().accept(this) as Identifier,
             parameters: ctx.commandParams().param().map(x => x.accept(this) as Identifier),
             restParam,
@@ -174,6 +187,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         }
 
         return new ASTNode(ASTNodeType.FunctionDefinition, this.getSourceInfo(ctx), {
+            group: this.currentGroup,
             name: ctx.identifier().accept(this) as Identifier,
             parameters: ctx.functionParams().param().map(x => x.accept(this) as Identifier),
             restParam,
@@ -184,6 +198,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     visitEventDeclaration(ctx: EventDeclarationContext): EventListenerDefinition {
         return new ASTNode(ASTNodeType.EventListenerDefinition, this.getSourceInfo(ctx), {
+            group: this.currentGroup,
             event: ctx.identifier().text,
             statements: this.getStatements(ctx)
         });

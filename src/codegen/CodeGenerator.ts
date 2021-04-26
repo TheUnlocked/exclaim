@@ -1,7 +1,8 @@
 import { CompilerError } from '../CompilerError';
-import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement } from '../parser/AST';
+import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement, ASTNode } from '../parser/AST';
 import { SemanticInfo } from '../semantic/SemanticInfo';
-import { zip } from '../util';
+import { SymbolTable } from '../semantic/SymbolTable';
+import { isValidVariableName, zip } from '../util';
 
 export interface CodeGeneratorOptions {
     semanticInfo: SemanticInfo;
@@ -20,6 +21,13 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         this.semanticInfo = options.semanticInfo;
         this.pushError = options.pushError;
         this.fileImport = options.fileImport;
+        this.currentSymbolTable = this.semanticInfo.rootSymbolTable;
+    }
+
+    currentSymbolTable: SymbolTable;
+
+    beforeVisit(ast: ASTNode) {
+        this.currentSymbolTable = this.semanticInfo.symbolTables[ast.id] ?? this.currentSymbolTable;
     }
 
     visitProgram(ast: Program): string {
@@ -41,14 +49,15 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitDeclareVariable(ast: DeclareVariable): string {
+        const name = ast.name.accept(this);
         if (ast.variant === 'temp') {
-            return `let ${ast.name.accept(this)}=${ast.value.accept(this)};`;
+            return `let ${name}=${ast.value.accept(this)};`;
         }
-        throw new Error('Method not implemented');
+        return `let ${name};$runtime.persistent.declare('${name}',${ast.value.accept(this)},x=>${name}=x);`;
     }
 
     visitGroupDefinition(ast: GroupDefinition): string {
-        throw new Error('Method not implemented');
+        return ast.children.map(x => x.accept(this)).join('');
     }
 
     private statements(ast: { statements: Statement[] }): string;
@@ -102,7 +111,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitFail(ast: Fail): string {
-        return '$fail();';
+        return '$runtime.fail();';
     }
 
     private assignment(ast: ValueStatement | string, exprCode: string): string {
@@ -110,6 +119,18 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitSet(ast: Set): string {
+        const root = ast.variable.type === ASTNodeType.OfExpression ? ast.variable.root : ast.variable;
+        if (root.type === ASTNodeType.Identifier) {
+            const found = this.currentSymbolTable.getField(root);
+            if (found?.type === 'data') {
+                const val = ast.expression.accept(this);
+                if (ast.variable.type === ASTNodeType.OfExpression) {
+                    const refChain = ast.variable.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
+                    return `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${val});`;
+                }
+                return `$runtime.persistent.set('${found.identifier.accept(this)}',${val});`;
+            }
+        }
         return this.assignment(ast.variable.accept(this), ast.expression.accept(this));
     }
 
@@ -129,7 +150,14 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitIsExpression(ast: IsExpression): string {
         // TODO: specify mechanism for which this generation can be done in a general way
-        throw new Error('Method not implemented');
+        let validationCode = 'false';
+        if (['placeholder'].includes(ast.targetType)) {
+
+        }
+        else {
+            validationCode = `${ast.expression.accept(this)} instanceof ${ast.targetType}`;
+        }
+        return ast.isNot ? `!(${validationCode})` : validationCode;
     }
 
     visitRelationalExpression(ast: RelationalExpression): string {
@@ -167,8 +195,10 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitIdentifier(ast: Identifier): string {
-        // TODO: escape javascript keywords
-        return ast.name;
+        if (isValidVariableName(ast.name)) {
+            return ast.name;
+        }
+        return `$${ast.name}`;
     }
 
     visitJavascriptExpression(ast: JavascriptExpression): string {
