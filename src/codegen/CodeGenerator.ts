@@ -16,6 +16,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     pushError: (error: CompilerError) => void;
     fileImport: 'no-emit' | 'require' | ((file: string) => string);
 
+    private initializationPromises: string[] = [];
+    private dataDeclarations: [name: string, default_: string, callback: string][] = [];
+
     constructor(options: CodeGeneratorOptions) {
         super();
         this.semanticInfo = options.semanticInfo;
@@ -31,7 +34,20 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitProgram(ast: Program): string {
-        throw new Error('Method not implemented');
+
+        this.initializationPromises.push(`$runtime.persistent.declareAll([${
+            this.dataDeclarations
+                .map(([name, default_, cb]) => `['${name}',${default_},${cb}]`)
+                .join(',')
+        }])`);
+
+        const imports = 'import{$runtime}from"./Runtime";';
+        const vars = '';
+        const functions = '';
+        const commandsAndEvents = '';
+        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsAndEvents}})`;
+
+        return `${imports}${vars}${functions}${behavior}`;
     }
 
     visitFileImport(ast: FileImport): string {
@@ -53,11 +69,13 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         if (ast.variant === 'temp') {
             return `let ${name}=${ast.value.accept(this)};`;
         }
-        return `let ${name};$runtime.persistent.declare('${name}',${ast.value.accept(this)},x=>${name}=x);`;
+        this.dataDeclarations.push([name, ast.value.accept(this), `x=>${name}=x`]);
+        return `let ${name};`;
     }
 
     visitGroupDefinition(ast: GroupDefinition): string {
-        return ast.children.map(x => x.accept(this)).join('');
+        // Surround in block so that functions are local to the group
+        return `{${ast.children.map(x => x.accept(this)).join('')}}`;
     }
 
     private statements(ast: { statements: Statement[] }): string;
@@ -111,7 +129,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitFail(ast: Fail): string {
-        return '$runtime.fail();';
+        return 'throw new Error();';
     }
 
     private assignment(ast: ValueStatement | string, exprCode: string): string {

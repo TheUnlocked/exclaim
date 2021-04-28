@@ -23,24 +23,50 @@ export type ASTGeneratorOptions = {
      */
     importFile?: (filename: string) => ProgramContext | undefined;
     /**
-     * Whether or not `FileImport` nodes should be emitted in the AST. Defaults to true if importFile is provided, false otherwise.
-     *
+     * Whether or not `FileImport` nodes should be emitted in the AST.
      * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
+     * 
+     * Default: true if importFile is provided, false otherwise
      */
     emitFileImportNode?: boolean;
+    /**
+     * Whether or not to sort declarations by putting imports at the top,
+     * then temp/data, then functions, then groups/commands/event listeners.
+     * 
+     * This applies to both top-level declarations and group contents.
+     * 
+     * Default: true
+     */
+    sortDeclarations?: boolean;
 };
+
+const sortingTable = {
+    [ASTNodeType.FileImport]: 0,
+    [ASTNodeType.ModuleImport]: 0,
+    [ASTNodeType.DeclareVariable]: 1,
+    [ASTNodeType.FunctionDefinition]: 2,
+    [ASTNodeType.GroupDefinition]: 3,
+    [ASTNodeType.CommandDefinition]: 3,
+    [ASTNodeType.EventListenerDefinition]: 3
+
+};
+function declarationSorter(a: Declaration, b: Declaration) {
+    return sortingTable[a.type] - sortingTable[b.type];
+}
 
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     sourceFile: string;
     pushError: (error: CompilerError) => void;
     importFile?: (filename: string) => ProgramContext | undefined;
     emitFileImportNode: boolean;
+    sortDeclarations: boolean;
 
     constructor(options: ASTGeneratorOptions) {
         this.sourceFile = options.sourceFile;
         this.pushError = options.pushError;
         this.importFile = options.importFile;
         this.emitFileImportNode = options.emitFileImportNode ?? options.importFile == null;
+        this.sortDeclarations = options.sortDeclarations ?? true;
     }
 
     private getSourceInfo(ctx: ParseTree) {
@@ -86,6 +112,9 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
             else {
                 declarations.push(declCtx.accept(this) as Declaration);
             }
+        }
+        if (this.sortDeclarations) {
+            declarations.sort(declarationSorter);
         }
         return new ASTNode(ASTNodeType.Program, this.getSourceInfo(ctx), {
             declarations
@@ -150,6 +179,9 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
         this.pushGroup(group);
         group.members = ctx.groupBlock().blockDeclaration().map(x => x.accept(this) as GroupableDefinition);
+        if (this.sortDeclarations) {
+            group.members.sort(declarationSorter);
+        }
         this.popGroup();
         return group;
     }
