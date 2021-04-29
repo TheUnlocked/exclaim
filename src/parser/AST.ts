@@ -190,7 +190,7 @@ export interface Set extends _ASTNode_Base {
 }
 
 interface _ValueStatement extends _ASTNode_Base {
-    assignTo?: Identifier;
+    assignTo: Identifier;
 }
 
 export interface Pick extends _ValueStatement {
@@ -296,6 +296,8 @@ export interface OfExpression extends _ASTNode_Base {
 export interface Identifier extends _ASTNode_Base {
     type: ASTNodeType.Identifier;
     name: string;
+    /** Was this identifier defined in the program text? */
+    implicit: boolean;
 }
 
 export interface RawStringLiteral extends _ASTNode_Base {
@@ -521,7 +523,10 @@ function accept<T>(this: ASTNode, visitor: ASTVisitor<T>) {
 }
 
 interface __ASTNode_Prototype {
-    /** Invariant: if a.id < b.id, and a and b are in separate statements in the same block, a comes before b */
+    /**
+     * Invariant: if a.id < b.id, and a and b are in separate statements in the same block, a comes before b.
+     * There is no guarantee that ids will be linearly increasing.
+     */
     id: number;
     readonly children: readonly ASTNode[];
     walk: typeof walk;

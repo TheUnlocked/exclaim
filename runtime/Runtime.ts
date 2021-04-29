@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import { debounce } from 'debounce';
-import { Client, Message, User } from 'discord.js';
+import { Client, Message } from 'discord.js';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 
@@ -13,6 +13,7 @@ class Runtime {
 
     persistent: Persistence = new Persistence();
     commands: CommandTree = new CommandTree();
+    events: Events = new Events();
 
     async start() {
         this.client.login(await this.persistent.get(this.tokenVarName));
@@ -29,7 +30,7 @@ class Runtime {
 
                     while (rest[++index] === ' ');
                     rest = rest.slice(index);
-                    
+
                     const nextTree = tree.find(command);
                     if (nextTree) {
                         tree = nextTree;
@@ -275,6 +276,33 @@ class CommandTree {
 
     find(name: string) {
         return this.branches[name];
+    }
+}
+
+class Events {
+    private eventListeners: { [eventName: string]: ((...args: any[]) => void)[] } = {};
+    
+    register(eventName: string, listener: (...args: any[]) => void) {
+        if (eventName in this.eventListeners) {
+            this.eventListeners[eventName].push(listener);
+        }
+    }
+
+    deregister(eventName: string, listener: (...args: any[]) => void) {
+        if (eventName in this.eventListeners) {
+            const index = this.eventListeners[eventName].indexOf(listener);
+            if (index >= 0) {
+                this.eventListeners[eventName].splice(index, 1)
+                return true;
+            }
+        }
+        return false;
+    }
+
+    dispatch(eventName: string, ...args: any[]) {
+        for (const listener of this.eventListeners[eventName]) {
+            listener(...args);
+        }
     }
 }
 

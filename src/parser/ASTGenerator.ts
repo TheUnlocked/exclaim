@@ -300,7 +300,11 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     visitPickStatement(ctx: PickStatementContext): Pick {
         return new ASTNode(ASTNodeType.Pick, this.getSourceInfo(ctx), {
             distribution: ctx.identifier().text,
-            collection: ctx.expr().accept(this) as Expression
+            collection: ctx.expr().accept(this) as Expression,
+            assignTo: new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
+                name: 'it',
+                implicit: true
+            })
         });
     }
 
@@ -308,13 +312,21 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return new ASTNode(ASTNodeType.Parse, this.getSourceInfo(ctx), {
             expression: ctx.expr().accept(this) as Expression,
             parser: ctx.identifier().text,
-            elseStatements: this.getStatements(ctx)
+            elseStatements: this.getStatements(ctx),
+            assignTo: new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
+                name: 'it',
+                implicit: true
+            })
         });
     }
 
     visitExprStatement(ctx: ExprStatementContext): ExprStatement {
         return new ASTNode(ASTNodeType.ExprStatement, this.getSourceInfo(ctx), {
-            expression: ctx.expr().accept(this) as Expression
+            expression: ctx.expr().accept(this) as Expression,
+            assignTo: new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
+                name: 'it',
+                implicit: true
+            })
         });
     }
 
@@ -388,7 +400,8 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
     visitIdentifier(ctx: IdentifierContext): Identifier {
         return new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
-            name: ctx.text
+            name: ctx.text,
+            implicit: false
         });
     }
 

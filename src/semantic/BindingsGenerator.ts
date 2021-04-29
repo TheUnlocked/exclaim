@@ -13,7 +13,7 @@ function builtin(name: string) {
     if (name in builtinIdentifierCache) {
         return builtinIdentifierCache[name];
     }
-    const ident = new ASTNode(ASTNodeType.Identifier, { ctx: null, file: '#builtin' }, { name });
+    const ident = new ASTNode(ASTNodeType.Identifier, { ctx: null, file: '#builtin' }, { name, implicit: true });
     builtinIdentifierCache[name] = ident;
     return ident;
 }
@@ -114,11 +114,7 @@ export class BindingsGenerator implements ASTListener {
     }
 
     enterEventListenerDefinition(ast: EventListenerDefinition) {
-        let fields = [] as string[];
-        switch (ast.event) {
-
-        }
-        this.pushST(ast, builtins(fields));
+        this.pushST(ast, builtins(this.info.events[ast.event]));
     }
 
     enterForEach(ast: ForEach) {
@@ -142,12 +138,7 @@ export class BindingsGenerator implements ASTListener {
 
     enterNode(ast: ASTNode) {
         if (isValueStatement(ast)) {
-            if (ast.assignTo) {
-                this.currentST.addField(toSymbol('local', ast.assignTo));
-            }
-            else {
-                this.currentST.addField(toSymbol('local', builtin('it')));
-            }
+            this.currentST.addField(toSymbol('local', ast.assignTo));
         }
     }
 

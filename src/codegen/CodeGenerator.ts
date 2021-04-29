@@ -4,6 +4,13 @@ import { SemanticInfo } from '../semantic/SemanticInfo';
 import { SymbolTable } from '../semantic/SymbolTable';
 import { isValidVariableName, zip } from '../util';
 
+function produceValidVariableName(varName: string) {
+    if (isValidVariableName(varName)) {
+        return varName;
+    }
+    return `$${varName}`;
+}
+
 export interface CodeGeneratorOptions {
     semanticInfo: SemanticInfo;
     pushError(error: CompilerError): void;
@@ -130,8 +137,12 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitEventListenerDefinition(ast: EventListenerDefinition): string {
-        // TODO: specify mechanism for which this generation can be done in a general way
-        throw new Error('Method not implemented');
+        const statements = this.statements(ast.statements);
+        if (ast.event in this.semanticInfo.events) {
+            const params = this.semanticInfo.events[ast.event].map(produceValidVariableName).join(',');
+            return `$runtime.events.register(${JSON.stringify(ast.event)},async(${params})=>{${statements}});`;
+        }
+        return `$runtime.events.register(${JSON.stringify(ast.event)},async(...arguments)=>{${statements}});`;
     }
 
     visitForEach(ast: ForEach): string {
@@ -163,7 +174,11 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     private assignment(ast: ValueStatement | string, exprCode: string): string {
-        return `${typeof ast === 'string' ? ast : ast.assignTo ?? 'it'}=${exprCode};`;
+        if (typeof ast === 'string') {
+            return `${ast}=${exprCode};`;
+        }
+        let shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
+        return `${shouldDeclare ? 'let ' : ''}${ast.assignTo.accept(this)}=${exprCode};`;
     }
 
     visitSet(ast: Set): string {
@@ -243,10 +258,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitIdentifier(ast: Identifier): string {
-        if (isValidVariableName(ast.name)) {
-            return ast.name;
-        }
-        return `$${ast.name}`;
+        return produceValidVariableName(ast.name);
     }
 
     visitJavascriptExpression(ast: JavascriptExpression): string {
