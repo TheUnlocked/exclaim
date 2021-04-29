@@ -82,10 +82,12 @@ mode javascriptMode;
 JS_OPEN_JS: '{' -> type(OPEN_JS), pushMode(javascriptMode);
 CLOSE_JS: '}' -> popMode;
 JS_STRING
-    : '\'' (~'\'' | '\\\'')* '\''
-    | '"' (~'"' | '\\"')* '"'
+    : '\'' ('\\\'' | ~'\'')* '\''
+    | '"' ('\\"' | ~'"')* '"'
     ;
 JS_OPEN_TEMPLATE_STRING: '`' -> pushMode(javascriptTemplateStringMode);
+JS_LINE_COMMENT: '//' .*? '\n' -> skip;
+JS_COMMENT: '/*' .*? '*/' -> skip;
 JS_CONTENTS: ~['"`{}]+;
 
 mode javascriptTemplateStringMode;
