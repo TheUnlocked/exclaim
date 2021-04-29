@@ -95,7 +95,7 @@ export class BindingsGenerator implements ASTListener {
     }
 
     enterCommandDefinition(ast: CommandDefinition) {
-        const magicParams = ['message', 'author'];
+        const magicParams = ['message'];
         const params = this.getParams(ast);
         for (const param of params) {
             if (magicParams.includes(param.name)) {

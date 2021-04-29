@@ -87,8 +87,38 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         return x.statements.map(x => x.accept(this)).join('');
     }
 
+    getGroupChain(group: GroupDefinition | undefined): string[] {
+        const chain = [] as string[];
+        while (group) {
+            chain.push(group.name.name);
+            group = group.group;
+        }
+        return chain.reverse();
+    }
+
     visitCommandDefinition(ast: CommandDefinition): string {
-        throw new Error('Method not implemented');
+        let paramList = '';
+        let paramStructure = '';
+        switch (ast.restParamVariant) {
+            case 'list':
+                paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},...${ast.restParam!.accept(this)}]`;
+                paramList = `$$rest.split(' ').filter(x=>x)`;
+                break;
+            case 'string':
+                paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},${ast.restParam!.accept(this)}]`;
+                paramList = `/^${ast.parameters.map(() => '(.+?) +').join('')}(.+)$/.exec($$rest).slice(1)`;
+                break;
+            case 'none':
+                paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')}]`;
+                paramList = `$$rest.split(' ').filter(x=>x)`;
+        }
+        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$$rest)=>{`;
+        const paramDeclarations = `let ${[...ast.parameters, ...[ast.restParam] ?? []].map(x => `${x?.accept(this)}`).join(',')};`;
+        const restDecomposition = `const $$paramList=${paramList};`;
+        const paramCheck = `if($$paramList.length<${ast.parameters.length})return'failed-args';`;
+        const paramAssigment = `${paramStructure}=$$paramList;`;
+        const footer = '});';
+        return `${header}${paramDeclarations}{${restDecomposition}${paramCheck}${paramAssigment}}${this.statements(ast.statements)}${footer}`;
     }
 
     visitFunctionDefinition(ast: FunctionDefinition): string {

@@ -1,12 +1,61 @@
 import fs from 'fs/promises';
+import { debounce } from 'debounce';
+import { Client, Message, User } from 'discord.js';
+
+type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 
 class Runtime {
+    tokenVarName = 'token';
+    prefixVarName = 'prefix';
+    prefix = '!';
+
+    client = new Client();
+
     persistent: Persistence = new Persistence();
+    commands: CommandTree = new CommandTree();
 
-    commands: CommandTrie = new CommandTrie();
+    async start() {
+        this.client.login(await this.persistent.get(this.tokenVarName));
+        this.prefix = await this.persistent.get(this.prefixVarName);
 
-    start() {
+        this.client.on('message', async msg => {
+            if (msg.content.startsWith(this.prefix)) {
+                let rest = msg.content.slice(this.prefix.length);
+                let tree = this.commands;
+                const viableCommands = [] as [command: Command, rest: string][];
+                while (true) {
+                    let index = rest.indexOf(' ');
+                    const command = rest.slice(0, index);
 
+                    while (rest[++index] === ' ');
+                    rest = rest.slice(index);
+                    
+                    const nextTree = tree.find(command);
+                    if (nextTree) {
+                        tree = nextTree;
+                        if (tree.command) {
+                            viableCommands.push([tree.command, rest]);
+                        }
+                    }
+                    else {
+                        break;
+                    }
+                }
+                // Attempt commands in order of greatest specificity
+                for (const [command, rest] of viableCommands.reverse()) {
+                    try {
+                        // It's the command's responsibility to do argument handling
+                        if (await command(msg, rest) !== 'failed-args') {
+                            break;
+                        }
+                    }
+                    catch (e) {
+                        console.error(`Command failed on message id ${msg.id}`, e);
+                        break;
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -72,7 +121,8 @@ type PersistenceEntry = {
 };
 
 class Persistence {
-    // 5 seconds
+    // Won't try to reload from file if it already checked
+    // file modification time in the last 5 seconds
     private readonly POLLING_RATE = 5000;
     private readonly CONFIG_PATH = './config.json';
 
@@ -107,6 +157,7 @@ class Persistence {
         }
     }
 
+    /** Avoid using this function and use `refreshIfNeeded` instead. */
     async refresh() {
         this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, {encoding: 'ascii'})));
         this.lastEdited = Date.now();
@@ -116,7 +167,7 @@ class Persistence {
         if (this.lastPolled + this.POLLING_RATE < Date.now()) {
             const stats = await fs.stat(this.CONFIG_PATH);
             
-            // 2ms error window. We still want to capture edits made in the past.
+            // 2ms error window. Abs because we still want to capture edits made in the future.
             if (Math.abs(stats.mtime.getTime() - this.lastEdited) > 2) {
                 // avoid races by immediately updating it
                 this.lastEdited = stats.mtime.getTime();
@@ -126,10 +177,15 @@ class Persistence {
         }
     }
 
+    private debouncedCommit?: () => Promise<void>;
+    /** Commits may be debounced and not guaranteed to run shortly after invocation */
     async commit() {
-        const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
-        await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data));
-        this.lastEdited = Date.now();
+        this.debouncedCommit ??= debounce(async () => {
+            const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
+            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data));
+            this.lastEdited = Date.now();
+        }, 1000, false);
+        await this.debouncedCommit();
     }
 
     async declare(varName: string, value: any, onUpdate: (newVal: any) => void, pushChanges = true) {
@@ -181,55 +237,44 @@ class Persistence {
 
         await this.commit();
     }
+
+    async get(varName: string) {
+        await this.refreshIfNeeded();
+        return this.data[varName].data;
+    }
 }
 
-type Command = () => void;
-class CommandTrie {
-    private commandTable: { [name: string]: Command | CommandTrie | undefined } = {};
-    
+class CommandTree {
+    private branches: { [name: string]: CommandTree | undefined } = {};
+    command: Command | undefined;
+
     add(commandName: string, groupChain: string[], command: Command) {
         if (groupChain.length === 0) {
-            const existing = this.commandTable[commandName];
-            if (existing instanceof CommandTrie) {
-                existing.add('', [], command);
+            const existing = this.branches[commandName];
+            if (existing instanceof CommandTree) {
+                existing.command = command;
             }
             else {
-                this.commandTable[commandName] = command;
+                const newTree = new CommandTree();
+                newTree.command = command;
+                this.branches[commandName] = newTree;
             }
         }
         else {
-            const existing = this.commandTable[groupChain[0]];
-            if (existing instanceof CommandTrie) {
-                existing.add(commandName, groupChain.slice(1), command);
-            }
-            else if (existing === undefined) {
-                const newTrie = new CommandTrie();
-                newTrie.add(commandName, groupChain.slice(1), command);
-                this.commandTable[groupChain[0]] = newTrie;
+            const existing = this.branches[groupChain[0]];
+            if (existing === undefined) {
+                const newTree = new CommandTree();
+                newTree.add(commandName, groupChain.slice(1), command);
+                this.branches[groupChain[0]] = newTree;
             }
             else {
-                const newTrie = new CommandTrie();
-                newTrie.add(groupChain[0], [], existing);
-                newTrie.add(commandName, groupChain.slice(1), command);
-                this.commandTable[groupChain[0]] = newTrie;
+                existing.add(commandName, groupChain.slice(1), command);
             }
         }
     }
 
     find(name: string) {
-        return this.commandTable[name];
-    }
-
-    findCommand(commandName: string, groupChain: string[]): Command | undefined {
-        if (groupChain.length === 0) {
-            const found = this.find(commandName);
-            return found instanceof CommandTrie ? found.find('') as Command | undefined : found;
-        }
-        const found = this.find(groupChain[0]);
-        if (found instanceof CommandTrie) {
-            return found?.findCommand(commandName, groupChain.slice(1));
-        }
-        return undefined;
+        return this.branches[name];
     }
 }
 
