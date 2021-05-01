@@ -54,9 +54,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 .join(',')
         }])`);
 
-        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsAndEvents}});`;
+        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsAndEvents}$runtime.start();});`;
 
-        return `${imports}${vars}${functions}${behavior}$runtime.start();`;
+        return `${imports}${vars}${functions}${behavior}`;
     }
 
     visitFileImport(ast: FileImport): string {
