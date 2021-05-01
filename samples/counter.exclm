@@ -1,0 +1,6 @@
+data counter 0
+
+command count [
+    set counter to counter + 1
+    send counter
+]

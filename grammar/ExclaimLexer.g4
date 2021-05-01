@@ -64,7 +64,7 @@ ID: [\p{L}] [\p{L}0-9_]*;
 OPEN_STRING: '"' -> pushMode(stringMode);
 OPEN_JS: '{' -> pushMode(javascriptMode);
 
-NL: '\n'+;
+NL: ('\n' | '\r')+;
 WS: [ \t\r]+ -> skip;
 
 mode stringMode;

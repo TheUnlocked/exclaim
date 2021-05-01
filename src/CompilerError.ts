@@ -12,7 +12,11 @@ export enum ErrorType {
     MultipleImplicitParameters,
     DuplicateParameterName,
     ShadowingMagicParameter,
-    ShadowingLocal
+    ShadowingLocal,
+    AssignToConst,
+    GetsDataTemp,
+    SetToLocal,
+    UndefinedVariable
 }
 
 export class CompilerError extends Error {

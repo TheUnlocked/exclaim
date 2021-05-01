@@ -1,7 +1,7 @@
 parser grammar Exclaim;
 options { tokenVocab=ExclaimLexer; }
 
-program: (topLevelDeclaration NL)* topLevelDeclaration? EOF;
+program: NL? (topLevelDeclaration NL)* topLevelDeclaration? NL? EOF;
 
 topLevelDeclaration
     : IMPORT string #exclaimImportDeclaration

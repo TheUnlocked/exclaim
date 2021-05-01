@@ -2,7 +2,7 @@ import { CompilerError, ErrorType } from '../CompilerError';
 import { ASTListener, ASTNode, ASTNodeType, CommandDefinition, DeclareVariable, EventListenerDefinition, ForEach, FunctionDefinition, Identifier, If, isValueStatement, While } from '../parser/AST';
 import { optionToList } from '../util';
 import { SemanticInfo } from './SemanticInfo';
-import { SymbolInfo, SymbolTable, SymbolType } from './SymbolTable';
+import { SymbolTable, SymbolType } from './SymbolTable';
 
 // This cache will always obey the ASTNode id invariant since
 // semantically builtins are always created at the start of a block,
@@ -135,6 +135,13 @@ export class BindingsGenerator implements ASTListener {
     enterIf(ast: If) {
         this.pushST(ast);
     }
+
+    // Not including this for now, may change in the future.
+    // enterIdentifier(ast: Identifier) {
+    //     if (this.currentST.getField(ast) === undefined) {
+    //         this.pushError(new CompilerError(ErrorType.UndefinedVariable, ast.source, 'Some error message'));
+    //     }
+    // }
 
     enterNode(ast: ASTNode) {
         if (isValueStatement(ast)) {

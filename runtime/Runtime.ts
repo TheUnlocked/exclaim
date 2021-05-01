@@ -4,24 +4,60 @@ import { Client, Message } from 'discord.js';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 
-class Runtime {
-    tokenVarName = 'token';
-    prefixVarName = 'prefix';
-    prefix = '!';
+interface IRuntime {
+    persistent: Persistence;
+    commands: CommandTree;
+    events: Events;
 
-    client = new Client();
+    start(): Promise<void>;
+    notifySet(varName: string, newValue: any): void;
+    sendMessage(message: string): void;
+    reactToMessage(message: Message | number, emote: string | number): void;
+}
+
+class Runtime implements IRuntime {
+    private tokenVarName = 'token';
+    private prefixVarName = 'prefix';
+
+    private prefix = '!';
+    private token: string = '';
+
+    private client = new Client();
 
     persistent: Persistence = new Persistence();
     commands: CommandTree = new CommandTree();
     events: Events = new Events();
 
     async start() {
-        this.client.login(await this.persistent.get(this.tokenVarName));
-        this.prefix = await this.persistent.get(this.prefixVarName);
+        this.loadEvents();
+        
+        if(!this.persistent.has(this.tokenVarName)) {
+            await this.persistent.declare(this.tokenVarName, '', x => this.notifySet(this.tokenVarName, x));
+        }
+        
+        if (!this.token) {
+            console.error('Provide a bot token in config.json.');
+            process.exit();
+        }
+        await this.client.login(this.token);
+    }
 
+    /** This must be called whenever a temp or data variable is set */
+    notifySet(varName: string, newValue: any) {
+        switch (varName) {
+            case this.prefixVarName: this.prefix = `${newValue}`; break;
+            case this.tokenVarName: this.token = `${newValue}`; break;
+        }
+    }
+
+    private loadEvents() {
         this.client.on('message', async msg => {
-            if (msg.content.startsWith(this.prefix)) {
-                let rest = msg.content.slice(this.prefix.length);
+            // TODO: Provide mechanism for a `temp prefix` declaration to work.
+            // Maybe $runtime.notifyTempSet(name, val) or something?
+            const prefix = this.prefix;
+
+            if (msg.content.startsWith(prefix)) {
+                let rest = msg.content.slice(prefix.length);
                 let tree = this.commands;
                 const viableCommands = [] as [command: Command, rest: string][];
                 while (true) {
@@ -160,7 +196,7 @@ class Persistence {
 
     /** Avoid using this function and use `refreshIfNeeded` instead. */
     async refresh() {
-        this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, {encoding: 'ascii'})));
+        this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, {encoding: 'utf-8'})));
         this.lastEdited = Date.now();
     }
 
@@ -179,11 +215,13 @@ class Persistence {
     }
 
     private debouncedCommit?: () => Promise<void>;
-    /** Commits may be debounced and not guaranteed to run shortly after invocation */
+    /** Commits may be debounced */
     async commit() {
         this.debouncedCommit ??= debounce(async () => {
             const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
-            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data));
+
+            // Technically unsafe if writes take longer than the debounce time, but they shouldn't.
+            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data), { encoding: 'utf-8' });
             this.lastEdited = Date.now();
         }, 1000, false);
         await this.debouncedCommit();
@@ -241,7 +279,12 @@ class Persistence {
 
     async get(varName: string) {
         await this.refreshIfNeeded();
-        return this.data[varName].data;
+        return this.data[varName]?.data;
+    }
+
+    async has(varName: string) {
+        await this.refreshIfNeeded();
+        return varName in this.data;
     }
 }
 

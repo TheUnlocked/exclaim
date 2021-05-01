@@ -43,9 +43,10 @@ export enum ASTNodeType {
     DictLiteral
 }
 
-const reverseASTNodeType = Object.fromEntries((Object.keys(ASTNodeType) as (keyof typeof ASTNodeType)[]).map(x => [ASTNodeType[x], x])) as { [Type in ASTNodeType]: keyof typeof ASTNodeType };
+const reverseASTNodeType = ASTNodeType as unknown as { [Type in ASTNodeType]: keyof typeof ASTNodeType };
 
 interface _ASTNode_Base extends __ASTNode_Prototype {
+    id: number;
     type: ASTNodeType;
     source: SourceInfo;
     // children: ASTNode[];
@@ -389,17 +390,15 @@ function createASTNode<
     Type extends ASTNodeType,
     Node extends ASTNode & { type: Type }
 >(
-    this: typeof __ASTNode_prototype,
+    this: ASTNode,
     type: Type,
     source: SourceInfo,
-    node: Omit<Node, 'type' | 'source' | keyof __ASTNode_Prototype>
+    node: Omit<Node, 'id' | 'type' | 'source' | keyof __ASTNode_Prototype>
 ) {
-    return {
-        id: ++__astNodeIdIterator,
-        type,
-        source,
-        ...node
-    };
+    this.id = ++__astNodeIdIterator;
+    this.type = type;
+    this.source = source;
+    Object.assign(this, node);
 }
 
 export const ASTNode = createASTNode as unknown as {
@@ -409,9 +408,8 @@ export const ASTNode = createASTNode as unknown as {
     > (
         type: Type,
         source: SourceInfo,
-        node: Omit<Node, 'type' | 'source' | keyof __ASTNode_Prototype>
-    ): Node & typeof __ASTNode_prototype;
-    prototype: typeof __ASTNode_prototype;
+        node: Omit<Node, 'id' | 'type' | 'source' | keyof __ASTNode_Prototype>
+    ): Node & __ASTNode_Prototype;
 };
 
 export type ASTNode =
@@ -477,6 +475,7 @@ function walk(this: ASTNode, listener: ASTListener) {
     listener.enterNode?.(this);
     // @ts-ignore
     listener[`enter${reverseASTNodeType[this.type]}`]?.(this);
+
     for (const child of this.children) {
         child.walk(listener);
     }
@@ -512,12 +511,17 @@ export abstract class BaseASTVisitor<T> implements ASTVisitor<T> {
 
 function accept<T>(this: ASTNode, visitor: ASTVisitor<T>) {
     visitor.beforeVisit?.(this);
+
+    let result: T;
     // @ts-ignore
     const visitorFn: ((node: ASTNode) => T) | undefined = visitor[`visit${reverseASTNodeType[this.type]}`];
     if (visitorFn) {
-        return visitorFn(this);
+        result = visitorFn.apply(visitor, [this]);
     }
-    const result = visitor.visitChildren(this.children);
+    else {
+        result = visitor.visitChildren(this.children);
+    }
+    
     visitor.afterVisit?.(this);
     return result;
 }
@@ -527,18 +531,17 @@ interface __ASTNode_Prototype {
      * Invariant: if a.id < b.id, and a and b are in separate statements in the same block, a comes before b.
      * There is no guarantee that ids will be linearly increasing.
      */
-    id: number;
     readonly children: readonly ASTNode[];
     walk: typeof walk;
     accept: typeof accept;
 }
 
-const __ASTNode_prototype = {
-    get children() {
-        return getChildren(this);
-    },
-    walk,
-    accept
-} as ASTNode;
-
-Object.assign(ASTNode.prototype, __ASTNode_prototype);
+Object.defineProperties(ASTNode.prototype, {
+    children: {
+        get() {
+            return getChildren(this);
+        }
+    }
+});
+ASTNode.prototype.walk = walk;
+ASTNode.prototype.accept = accept;

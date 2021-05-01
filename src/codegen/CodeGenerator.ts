@@ -1,4 +1,4 @@
-import { CompilerError } from '../CompilerError';
+import { CompilerError, ErrorType } from '../CompilerError';
 import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement, ASTNode } from '../parser/AST';
 import { SemanticInfo } from '../semantic/SemanticInfo';
 import { SymbolTable } from '../semantic/SymbolTable';
@@ -11,17 +11,18 @@ function produceValidVariableName(varName: string) {
     return `$${varName}`;
 }
 
+type FileImportOption = 'no-emit' | 'require' | ((file: string) => string);
+
 export interface CodeGeneratorOptions {
     semanticInfo: SemanticInfo;
     pushError(error: CompilerError): void;
-    fileImport: 'no-emit' | 'require' | ((file: string) => string);
+    fileImport: FileImportOption;
 }
 
 export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<string> {
-
     semanticInfo: SemanticInfo;
     pushError: (error: CompilerError) => void;
-    fileImport: 'no-emit' | 'require' | ((file: string) => string);
+    fileImport: FileImportOption;
 
     private initializationPromises: string[] = [];
     private dataDeclarations: [name: string, default_: string, callback: string][] = [];
@@ -31,7 +32,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         this.semanticInfo = options.semanticInfo;
         this.pushError = options.pushError;
         this.fileImport = options.fileImport;
-        this.currentSymbolTable = this.semanticInfo.rootSymbolTable;
+        this.currentSymbolTable = this.semanticInfo.rootSymbolTable!;
     }
 
     currentSymbolTable: SymbolTable;
@@ -41,6 +42,11 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitProgram(ast: Program): string {
+        const imports = 'import{$runtime}from"./Runtime";';
+        const contextDeclaration = 'const $context={message:undefined};'
+        const vars = `${contextDeclaration}${ast.declarations.filter(x => x.type === ASTNodeType.DeclareVariable).map(x => x.accept(this)).join('')}`;
+        const functions = ast.declarations.filter(x => x.type === ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
+        const commandsAndEvents = ast.declarations.filter(x => x.type === ASTNodeType.CommandDefinition || x.type === ASTNodeType.EventListenerDefinition).map(x => x.accept(this)).join('');
 
         this.initializationPromises.push(`$runtime.persistent.declareAll([${
             this.dataDeclarations
@@ -48,13 +54,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 .join(',')
         }])`);
 
-        const imports = 'import{$runtime}from"./Runtime";';
-        const vars = '';
-        const functions = '';
-        const commandsAndEvents = '';
-        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsAndEvents}})`;
+        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsAndEvents}});`;
 
-        return `${imports}${vars}${functions}${behavior}`;
+        return `${imports}${vars}${functions}${behavior}$runtime.start();`;
     }
 
     visitFileImport(ast: FileImport): string {
@@ -71,18 +73,22 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         return `import {${ast.members.map(x => x.accept(this)).join(',')}} from ${JSON.stringify(ast.filename)};`;
     }
 
+    private notifySet(ident: Identifier) {
+        return `$runtime.notifySet('${ident.name}',${ident.accept(this)});`;
+    }
+
     visitDeclareVariable(ast: DeclareVariable): string {
         const name = ast.name.accept(this);
         if (ast.variant === 'temp') {
-            return `let ${name}=${ast.value.accept(this)};`;
+            return `let ${name}=${ast.value.accept(this)};${this.notifySet(ast.name)}`;
         }
-        this.dataDeclarations.push([name, ast.value.accept(this), `x=>${name}=x`]);
+        this.dataDeclarations.push([name, ast.value.accept(this), `$x=>{${name}=$x;${this.notifySet(ast.name)}}`]);
         return `let ${name};`;
     }
 
     visitGroupDefinition(ast: GroupDefinition): string {
         // Surround in block so that functions are local to the group
-        return `{${ast.children.map(x => x.accept(this)).join('')}}`;
+        return `{${ast.members.map(x => x.accept(this)).join('')}}`;
     }
 
     private statements(ast: { statements: Statement[] }): string;
@@ -119,13 +125,14 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')}]`;
                 paramList = `$$rest.split(' ').filter(x=>x)`;
         }
-        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$$rest)=>{`;
+        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$$rest)=>{$context.message=message;`;
         const paramDeclarations = `let ${[...ast.parameters, ...[ast.restParam] ?? []].map(x => `${x?.accept(this)}`).join(',')};`;
         const restDecomposition = `const $$paramList=${paramList};`;
         const paramCheck = `if($$paramList.length<${ast.parameters.length})return'failed-args';`;
         const paramAssigment = `${paramStructure}=$$paramList;`;
-        const footer = '});';
-        return `${header}${paramDeclarations}{${restDecomposition}${paramCheck}${paramAssigment}}${this.statements(ast.statements)}${footer}`;
+        const parameterHandling = ast.parameters.length > 0 || ast.restParamVariant !== 'none' ? `${paramDeclarations}{${restDecomposition}${paramCheck}${paramAssigment}}` : '';
+        const footer = '$context.message=undefined;});';
+        return `${header}${parameterHandling}${this.statements(ast.statements)}${footer}`;
     }
 
     visitFunctionDefinition(ast: FunctionDefinition): string {
@@ -162,39 +169,56 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitSend(ast: Send): string {
-        throw new Error('Method not implemented');
+        return `$runtime.sendMessage(${ast.message.accept(this)});`;
     }
 
     visitReact(ast: React): string {
-        throw new Error('Method not implemented');
+        return `$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)});`;
     }
 
     visitFail(ast: Fail): string {
         return 'throw new Error();';
     }
 
-    private assignment(ast: ValueStatement | string, exprCode: string): string {
-        if (typeof ast === 'string') {
-            return `${ast}=${exprCode};`;
-        }
-        let shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
-        return `${shouldDeclare ? 'let ' : ''}${ast.assignTo.accept(this)}=${exprCode};`;
-    }
-
     visitSet(ast: Set): string {
         const root = ast.variable.type === ASTNodeType.OfExpression ? ast.variable.root : ast.variable;
         if (root.type === ASTNodeType.Identifier) {
             const found = this.currentSymbolTable.getField(root);
-            if (found?.type === 'data') {
-                const val = ast.expression.accept(this);
-                if (ast.variable.type === ASTNodeType.OfExpression) {
-                    const refChain = ast.variable.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
-                    return `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${val});`;
-                }
-                return `$runtime.persistent.set('${found.identifier.accept(this)}',${val});`;
+            switch (found?.type) {
+                case 'data':
+                    const val = ast.expression.accept(this);
+                    if (ast.variable.type === ASTNodeType.OfExpression) {
+                        const refChain = ast.variable.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
+                        return `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${val});${this.notifySet(found.identifier)}`;
+                    }
+                    return `$runtime.persistent.set('${found.identifier.accept(this)}',${val});${this.notifySet(found.identifier)}`;
+                case 'temp':
+                    return `${ast.variable.accept(this)}=${ast.expression.accept(this)};${this.notifySet(found.identifier)}`;
+                case 'const':
+                    this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a built-in variable'));
+                    break;
+                default:
+                    this.pushError(new CompilerError(ErrorType.SetToLocal, ast.variable.source, 'set ... to ... should not be used for local variables. Use <- instead'));
+                break;
             }
         }
-        return this.assignment(ast.variable.accept(this), ast.expression.accept(this));
+        return `${ast.variable.accept(this)}=${ast.expression.accept(this)};`;
+    }
+
+    private assignment(ast: ValueStatement, exprCode: string): string {
+        const found = this.currentSymbolTable.getField(ast.assignTo);
+        switch (found?.type) {
+            case 'const':
+                this.pushError(new CompilerError(ErrorType.AssignToConst, ast.assignTo.source, 'Cannot assign to a built-in variable'));
+                break;
+            case 'data':
+            case 'temp':
+                this.pushError(new CompilerError(ErrorType.GetsDataTemp, ast.assignTo.source, '<- should not be used for data or temp variables. Use set ... to ... instead'));
+                break;
+        }
+
+        let shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
+        return `${shouldDeclare ? 'let ' : ''}${ast.assignTo.accept(this)}=${exprCode};`;
     }
 
     visitPick(ast: Pick): string {
