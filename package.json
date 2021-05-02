@@ -2,8 +2,8 @@
   "scripts": {
     "pre-build": "npm run antlr4 && npm run typecheck",
     "build:cli": "webpack",
-    "build:runtime": "echo 'Not yet implemented!'",
-    "build": "echo 'Not yet implemented!'",
+    "build:runtime": "cd runtime && webpack",
+    "build:full": "npm run pre-build && concurrently \"npm:build:cli\" \"npm:build:runtime\"",
     "test": "mocha",
     "lint": "eslint -c .eslintrc --ext .ts src test",
     "lint:fix": "npm run lint -- --fix",
@@ -19,6 +19,7 @@
     "@typescript-eslint/parser": "^4.21.0",
     "antlr4ts-cli": "^0.5.0-alpha.4",
     "assert": "^2.0.0",
+    "concurrently": "^6.0.2",
     "eslint": "^7.23.0",
     "eslint-config-airbnb-typescript": "^12.3.1",
     "eslint-plugin-import": "^2.22.1",

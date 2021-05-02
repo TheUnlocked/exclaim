@@ -22,13 +22,15 @@ class Runtime implements IRuntime {
     private prefix = '!';
     private token: string = '';
 
-    private client = new Client();
+    private client!: Client;
 
     persistent: Persistence = new Persistence();
     commands: CommandTree = new CommandTree();
     events: Events = new Events();
 
     async start() {
+        this.client = new Client();
+
         this.loadEvents();
         
         if(!this.persistent.has(this.tokenVarName)) {
@@ -203,34 +205,55 @@ class Persistence {
 
     /** Avoid using this function and use `refreshIfNeeded` instead. */
     async refresh() {
-        this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, {encoding: 'utf-8'})));
-        this.lastEdited = Date.now();
+        try {
+            this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, {encoding: 'utf-8'})));
+            this.lastEdited = Date.now();
+        }
+        catch (e) {
+            if (e.code === 'ENOENT') {
+                await this.commitNow();
+            }
+            else {
+                console.error(`${this.CONFIG_PATH} is corrupted or otherwise unreadable. Fix it or delete it.`);
+            }
+        }
     }
 
     async refreshIfNeeded() {
         if (this.lastPolled + this.POLLING_RATE < Date.now()) {
-            const stats = await fs.stat(this.CONFIG_PATH);
-            
-            // 2ms error window. Abs because we still want to capture edits made in the future.
-            if (Math.abs(stats.mtime.getTime() - this.lastEdited) > 2) {
-                // avoid races by immediately updating it
-                this.lastEdited = stats.mtime.getTime();
-                this.refresh();
+            try {
+                const stats = await fs.stat(this.CONFIG_PATH);
+
+                // 2ms error window. Abs because we still want to capture edits made in the future.
+                if (Math.abs(stats.mtime.getTime() - this.lastEdited) > 2) {
+                    // avoid races by immediately updating it
+                    this.lastEdited = stats.mtime.getTime();
+                    this.refresh();
+                }
+                this.lastPolled = Date.now();
             }
-            this.lastPolled = Date.now();
+            catch (e) {
+                await this.commitNow();
+                return;
+            }
+        }
+    }
+
+    private async commitNow() {
+        const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
+        try {
+            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data), { encoding: 'utf-8' });
+            this.lastEdited = Date.now();
+        }
+        catch (e) {
+            console.error(`${this.CONFIG_PATH} cannot be written to.`);
         }
     }
 
     private debouncedCommit?: () => Promise<void>;
     /** Commits may be debounced */
     async commit() {
-        this.debouncedCommit ??= debounce(async () => {
-            const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
-
-            // Technically unsafe if writes take longer than the debounce time, but they shouldn't.
-            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data), { encoding: 'utf-8' });
-            this.lastEdited = Date.now();
-        }, 1000, false);
+        this.debouncedCommit ??= debounce(async () => await this.commitNow(), 1000, false);
         await this.debouncedCommit();
     }
 
@@ -356,4 +379,4 @@ class Events {
     }
 }
 
-export const $runtime = new Runtime();
+export default new Runtime();
