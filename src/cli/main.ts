@@ -10,15 +10,28 @@ import { generateParseTreeFromFile, printErrors } from './util';
 const args = minimist(process.argv.slice(2), {
     alias: {
         file: ['f'],
-        out: ['o']
+        out: ['o'],
+        help: ['h', '?']
     },
-    boolean: ['ignore-errors'],
-    string: ['entry', 'out']
+    boolean: ['ignore-errors', 'help'],
+    string: ['file', 'out']
 });
 
 const inFile = args.file ?? args._[0] as string;
 const outFile = args.out as string;
 const ignoreErrors = args['ignore-errors'];
+
+if (args.help || !inFile) {
+    console.log(`Usage: node exclaim [options] <[-f|--file] entry-file>
+
+Options:
+    -f, --file          The source file to compile.
+    -o, --out           The file to write the compiled output to.
+                        If omitted, the output will be written to stdout.
+    --ignore-errors     Prevent compiler errors from stopping compilation when possible.
+    -h, -?, --help      Prints this help screen and exits.`);
+    process.exit(0);
+}
 
 const errors = [] as CompilerError[];
 

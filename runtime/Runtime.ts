@@ -54,8 +54,6 @@ class Runtime implements IRuntime {
 
     private loadEvents() {
         this.client.on('message', async msg => {
-            // TODO: Provide mechanism for a `temp prefix` declaration to work.
-            // Maybe $runtime.notifyTempSet(name, val) or something?
             const prefix = this.prefix;
 
             if (msg.content.startsWith(prefix)) {
