@@ -94,6 +94,13 @@ class Runtime implements IRuntime {
             }
         });
     }
+
+    sendMessage(message: string): void {
+        throw new Error('Method not implemented.');
+    }
+    reactToMessage(message: number | Message, emote: string | number): void {
+        throw new Error('Method not implemented.');
+    }
 }
 
 function partitionArray<T>(arr: T[], callback: (value: T, index: number, arr: T[]) => boolean): [T[], T[]] {

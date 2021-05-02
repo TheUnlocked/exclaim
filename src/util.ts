@@ -23,7 +23,7 @@ export function optionToList<T>(...args: T[]): NonNullable<T>[] {
     return args.filter((x): x is NonNullable<T> => x != null);
 }
 
-/** While this function should be safe, because of the use of `eval`,
+/** While this function should be safe, because of the use of `new Function()`,
  * is it discouraged to use this function with unsanitized user input. */
 export function isValidVariableName(str: string) {
     // Avoid code injection (just in case)
@@ -31,7 +31,7 @@ export function isValidVariableName(str: string) {
         return false;
     }
     try {
-        eval(`let ${str};`);
+        new Function(`let ${str}`)();
         return !(str in globalThis);
     }
     catch (e) {

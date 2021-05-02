@@ -81,3 +81,5 @@ src/parser/generated
 
 # Typescript incremental building cache
 tsconfig.tsbuildinfo
+
+out/

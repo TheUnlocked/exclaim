@@ -1,6 +1,9 @@
 {
   "scripts": {
-    "build": "npm run antlr4 && npm run typecheck && echo 'Building not yet implemented!'",
+    "pre-build": "npm run antlr4 && npm run typecheck",
+    "build:cli": "webpack",
+    "build:runtime": "echo 'Not yet implemented!'",
+    "build": "echo 'Not yet implemented!'",
     "test": "mocha",
     "lint": "eslint -c .eslintrc --ext .ts src test",
     "lint:fix": "npm run lint -- --fix",
@@ -20,8 +23,11 @@
     "eslint-config-airbnb-typescript": "^12.3.1",
     "eslint-plugin-import": "^2.22.1",
     "mocha": "^8.3.2",
+    "ts-loader": "^9.1.1",
     "ts-node": "^9.1.1",
-    "typescript": "^4.2.4"
+    "typescript": "^4.2.4",
+    "webpack": "^5.36.2",
+    "webpack-cli": "^4.6.0"
   },
   "dependencies": {
     "antlr4ts": "^0.5.0-alpha.4",
