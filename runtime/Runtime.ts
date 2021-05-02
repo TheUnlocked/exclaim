@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import { debounce } from 'debounce';
-import { Client, Message } from 'discord.js';
+import { Channel, Client, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 
@@ -11,8 +11,8 @@ interface IRuntime {
 
     start(): Promise<void>;
     notifySet(varName: string, newValue: any): void;
-    sendMessage(message: string): void;
-    reactToMessage(message: Message | number, emote: string | number): void;
+    sendMessage(channel: Channel | string, message: any): Promise<Message>;
+    reactToMessage(channelIfNeeded: Channel, message: Message | string, emote: EmojiResolvable): Promise<void>;
 }
 
 class Runtime implements IRuntime {
@@ -56,7 +56,7 @@ class Runtime implements IRuntime {
         this.client.on('message', async msg => {
             const prefix = this.prefix;
 
-            if (msg.content.startsWith(prefix)) {
+            if (!msg.author.bot && msg.content.startsWith(prefix)) {
                 let rest = msg.content.slice(prefix.length);
                 let tree = this.commands;
                 const viableCommands = [] as [command: Command, rest: string][];
@@ -96,11 +96,27 @@ class Runtime implements IRuntime {
         });
     }
 
-    sendMessage(message: string): void {
-        throw new Error('Method not implemented.');
+    async sendMessage(channel: Channel | string, message: any) {
+        if (typeof channel === 'string') {
+            channel = await this.client.channels.fetch(channel);
+        }
+        if (channel instanceof TextChannel || channel instanceof DMChannel) {
+            return channel.send(`${message}`);
+        }
+        throw new Error(`Failed to send message to channel ${channel.id}.`);
     }
-    reactToMessage(message: number | Message, emote: string | number): void {
-        throw new Error('Method not implemented.');
+
+    async reactToMessage(channelIfNeeded: Channel, message: Message | string, emote: EmojiResolvable) {
+        if (typeof message === 'string') {
+            message = await (channelIfNeeded as TextChannel | DMChannel | NewsChannel).messages.fetch(message);
+        }
+        const emoji = this.client.emojis.resolve(emote);
+        if (emoji) {
+            await message.react(emoji);
+        }
+        else {
+            throw new Error(`Failed to find emoji ${emote}.`);
+        }
     }
 }
 

@@ -3,15 +3,11 @@ import fs from 'fs';
 import { CompilerError, ErrorType } from '../CompilerError';
 import { Exclaim } from '../parser/generated/Exclaim';
 import { ExclaimLexer } from '../parser/generated/ExclaimLexer';
+import { sourceInfoToString } from '../parser/SourceInfo';
 
 export function printErrors(errors: CompilerError[]) {
     for (const error of errors) {
-        if (error.source.ctx instanceof ParserRuleContext) {
-            console.error(`EXCLM(${error.type}) Pos ${error.source.ctx.start.line}:${error.source.ctx.start.charPositionInLine} @ ${error.source.file}: ${error.message}.`);
-        }
-        else {
-            console.error(`EXCLM(${error.type}) Pos ${error.source.ctx?.line}:${error.source.ctx?.column} @ ${error.source.file}: ${error.message}.`);
-        }
+        console.error(`EXCLM(${error.type}) Pos ${sourceInfoToString(error.source)}: ${error.message}.`);
     }
 }
 

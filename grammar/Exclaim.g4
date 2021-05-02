@@ -33,7 +33,6 @@ statement
     | WHILE expr functionBlock #whileStatement
     | IF expr functionBlock (ELSE functionBlock)? #ifStatement
     | FAIL #failStatement
-    | SEND expr #sendStatement
     | REACT WITH expr #reactStatement
     | REACT TO expr WITH expr #reactToStatement
     | SET lvalue TO expr #setStatement
@@ -42,7 +41,8 @@ statement
     ;
 
 valueStatement
-    : PICK identifier FROM expr #pickStatement
+    : SEND expr #sendStatement
+    | PICK identifier FROM expr #pickStatement
     | PARSE expr AS identifier (ELSE functionBlock)? #parseStatement
     | expr #exprStatement
     ;

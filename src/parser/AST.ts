@@ -173,11 +173,6 @@ export interface Fail extends _ASTNode_Base {
     type: ASTNodeType.Fail;
 }
 
-export interface Send extends _ASTNode_Base {
-    type: ASTNodeType.Send;
-    message: Expression;
-}
-
 export interface React extends _ASTNode_Base {
     type: ASTNodeType.React;
     targetMessage: Expression | undefined;
@@ -192,6 +187,13 @@ export interface Set extends _ASTNode_Base {
 
 interface _ValueStatement extends _ASTNode_Base {
     assignTo: Identifier;
+}
+
+type _ContextualValueStatement = _ASTNode_Base & Partial<Omit<_ValueStatement, keyof _ASTNode_Base>>;
+
+export interface Send extends _ContextualValueStatement {
+    type: ASTNodeType.Send;
+    message: Expression;
 }
 
 export interface Pick extends _ValueStatement {
@@ -212,12 +214,14 @@ export interface ExprStatement extends _ValueStatement {
     expression: Expression;
 }
 
-export type ValueStatement = Pick | Parse | ExprStatement;
+export type ValueStatement = Pick | Parse | ExprStatement | (Send & _ValueStatement);
 
 export function isValueStatement(node: ASTNode): node is ValueStatement {
     switch (node.type) {
         case ASTNodeType.Pick: case ASTNodeType.Parse: case ASTNodeType.ExprStatement:
             return true;
+        case ASTNodeType.Send:
+            return node.assignTo !== undefined;
         default:
             return false;
     }

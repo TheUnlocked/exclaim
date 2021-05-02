@@ -1,5 +1,6 @@
 import { CompilerError, ErrorType } from '../CompilerError';
 import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement, ASTNode } from '../parser/AST';
+import { sourceInfoToString } from '../parser/SourceInfo';
 import { SemanticInfo } from '../semantic/SemanticInfo';
 import { SymbolTable } from '../semantic/SymbolTable';
 import { isValidVariableName, zip } from '../util';
@@ -18,6 +19,10 @@ export interface CodeGeneratorOptions {
     pushError(error: CompilerError): void;
     fileImport: FileImportOption;
 }
+
+const defaultContext = {
+    message: undefined
+};
 
 export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<string> {
     semanticInfo: SemanticInfo;
@@ -43,7 +48,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitProgram(ast: Program): string {
         const imports = 'const $runtime=require("./Runtime.js");';
-        const contextDeclaration = 'const $context={message:undefined};';
+        const contextDeclaration = `const $context=${JSON.stringify(defaultContext)};`;
         const vars = `${contextDeclaration}${ast.declarations.filter(x => x.type === ASTNodeType.DeclareVariable).map(x => x.accept(this)).join('')}`;
         const functions = ast.declarations.filter(x => x.type === ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
         const commandsAndEvents = ast.declarations.filter(x => x.type === ASTNodeType.CommandDefinition || x.type === ASTNodeType.EventListenerDefinition).map(x => x.accept(this)).join('');
@@ -168,16 +173,12 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         return ifPart;
     }
 
-    visitSend(ast: Send): string {
-        return `$runtime.sendMessage(${ast.message.accept(this)});`;
-    }
-
     visitReact(ast: React): string {
-        return `$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)});`;
+        return `$runtime.reactToMessage($context.message.channel,${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)});`;
     }
 
     visitFail(ast: Fail): string {
-        return 'throw new Error();';
+        return `throw new Error('Intentionally failed at ${sourceInfoToString(ast.source)}.');`;
     }
 
     visitSet(ast: Set): string {
@@ -220,6 +221,13 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
         const shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
         return `${shouldDeclare ? 'let ' : ''}${ast.assignTo.accept(this)}=${exprCode};`;
+    }
+
+    visitSend(ast: Send): string {
+        if (ast.assignTo) {
+            return this.assignment(ast as ValueStatement, `await $runtime.sendMessage($context.message.channel,${ast.message.accept(this)})`);
+        }
+        return `$runtime.sendMessage($context.message.channel,${ast.message.accept(this)});`;
     }
 
     visitPick(ast: Pick): string {
