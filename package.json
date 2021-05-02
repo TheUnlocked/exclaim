@@ -3,9 +3,10 @@
     "pre-build": "npm run antlr4 && npm run typecheck",
     "build:cli": "webpack",
     "build:runtime": "cd runtime && webpack",
-    "build:full": "npm run pre-build && concurrently \"npm:build:cli\" \"npm:build:runtime\"",
+    "build:both": "concurrently \"npm:build:cli\" \"npm:build:runtime\"",
+    "build:full": "npm run pre-build && npm run build:both",
     "test": "mocha",
-    "lint": "eslint -c .eslintrc --ext .ts src test",
+    "lint": "eslint -c .eslintrc --ext .ts src test runtime/Runtime.ts",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc --incremental --noEmit",
     "antlr4": "antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4"

@@ -73,7 +73,7 @@ export interface DeclareVariable extends _ASTNode_Base {
     variant: 'data' | 'temp';
     name: Identifier;
     value: LiteralExpression;
-} 
+}
 
 interface _GroupableDefinition extends _ASTNode_Base {
     group?: GroupDefinition;
@@ -521,7 +521,7 @@ function accept<T>(this: ASTNode, visitor: ASTVisitor<T>) {
     else {
         result = visitor.visitChildren(this.children);
     }
-    
+
     visitor.afterVisit?.(this);
     return result;
 }

@@ -16,8 +16,8 @@ const args = minimist(process.argv.slice(2), {
     string: ['entry', 'out']
 });
 
-const inFile = args['file'] as string;
-const outFile = args['out'] as string;
+const inFile = args.file ?? args._[0] as string;
+const outFile = args.out as string;
 const ignoreErrors = args['ignore-errors'];
 
 const errors = [] as CompilerError[];
@@ -53,7 +53,7 @@ if (errors.length > 0 && !ignoreErrors) {
     process.exit(1);
 }
 
-if (args['out']) {
+if (args.out) {
     if (errors.length > 0) {
         printErrors(errors);
     }

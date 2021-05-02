@@ -42,6 +42,12 @@
         "max-classes-per-file": "off",
         "default-case": "off",
         "no-return-assign": "off",
-        "prefer-template": "off"
+        "prefer-template": "off",
+        "no-console": "off",
+        "prefer-destructuring": "off",
+        "no-constant-condition": ["error", {
+            "checkLoops": false
+        }],
+        "no-param-reassign": "off"
     }
 }

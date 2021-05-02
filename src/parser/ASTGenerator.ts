@@ -7,7 +7,6 @@ import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVari
 import { ExclaimVisitor } from './generated/ExclaimVisitor';
 import { SourceInfo } from './SourceInfo';
 import { CompilerError, ErrorType } from '../CompilerError';
-import { SemiRequired } from '../util';
 
 export type ASTGeneratorOptions = {
     sourceFile: string;
@@ -25,16 +24,16 @@ export type ASTGeneratorOptions = {
     /**
      * Whether or not `FileImport` nodes should be emitted in the AST.
      * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
-     * 
+     *
      * Default: true if importFile is provided, false otherwise
      */
     emitFileImportNode?: boolean;
     /**
      * Whether or not to sort declarations by putting imports at the top,
      * then temp/data, then functions, then groups/commands/event listeners.
-     * 
+     *
      * This applies to both top-level declarations and group contents.
-     * 
+     *
      * Default: true
      */
     sortDeclarations?: boolean;

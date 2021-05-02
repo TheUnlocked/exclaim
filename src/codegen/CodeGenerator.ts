@@ -43,7 +43,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitProgram(ast: Program): string {
         const imports = 'const $runtime=require("./Runtime.js");';
-        const contextDeclaration = 'const $context={message:undefined};'
+        const contextDeclaration = 'const $context={message:undefined};';
         const vars = `${contextDeclaration}${ast.declarations.filter(x => x.type === ASTNodeType.DeclareVariable).map(x => x.accept(this)).join('')}`;
         const functions = ast.declarations.filter(x => x.type === ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
         const commandsAndEvents = ast.declarations.filter(x => x.type === ASTNodeType.CommandDefinition || x.type === ASTNodeType.EventListenerDefinition).map(x => x.accept(this)).join('');
@@ -63,7 +63,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         if (typeof this.fileImport === 'function') {
             return this.fileImport(ast.filename);
         }
-        else if (this.fileImport === 'require') {
+        if (this.fileImport === 'require') {
             return `require(${ast.filename});`;
         }
         return '';
@@ -115,7 +115,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         switch (ast.restParamVariant) {
             case 'list':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},...${ast.restParam!.accept(this)}]`;
-                paramList = `$$rest.split(' ').filter(x=>x)`;
+                paramList = "$$rest.split(' ').filter(x=>x)";
                 break;
             case 'string':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},${ast.restParam!.accept(this)}]`;
@@ -123,7 +123,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 break;
             case 'none':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')}]`;
-                paramList = `$$rest.split(' ').filter(x=>x)`;
+                paramList = "$$rest.split(' ').filter(x=>x)";
         }
         const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$$rest)=>{$context.message=message;`;
         const paramDeclarations = `let ${[...ast.parameters, ...[ast.restParam] ?? []].map(x => `${x?.accept(this)}`).join(',')};`;
@@ -185,13 +185,14 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         if (root.type === ASTNodeType.Identifier) {
             const found = this.currentSymbolTable.getField(root);
             switch (found?.type) {
-                case 'data':
+                case 'data': {
                     const val = ast.expression.accept(this);
                     if (ast.variable.type === ASTNodeType.OfExpression) {
                         const refChain = ast.variable.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
                         return `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${val});${this.notifySet(found.identifier)}`;
                     }
                     return `$runtime.persistent.set('${found.identifier.accept(this)}',${val});${this.notifySet(found.identifier)}`;
+                }
                 case 'temp':
                     return `${ast.variable.accept(this)}=${ast.expression.accept(this)};${this.notifySet(found.identifier)}`;
                 case 'const':
@@ -199,7 +200,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                     break;
                 default:
                     this.pushError(new CompilerError(ErrorType.SetToLocal, ast.variable.source, 'set ... to ... should not be used for local variables. Use <- instead'));
-                break;
+                    break;
             }
         }
         return `${ast.variable.accept(this)}=${ast.expression.accept(this)};`;
@@ -217,7 +218,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 break;
         }
 
-        let shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
+        const shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
         return `${shouldDeclare ? 'let ' : ''}${ast.assignTo.accept(this)}=${exprCode};`;
     }
 
@@ -239,7 +240,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         // TODO: specify mechanism for which this generation can be done in a general way
         let validationCode = 'false';
         if (['placeholder'].includes(ast.targetType)) {
-
+            // todo
         }
         else {
             validationCode = `${ast.expression.accept(this)} instanceof ${ast.targetType}`;

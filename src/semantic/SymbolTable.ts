@@ -18,7 +18,7 @@ export class SymbolTable {
 
     /** Adding a field to a local ST will shadow fields in inherited global STs */
     addField(symbol: SymbolInfo): boolean {
-        // If the field already exists in this or a higher local scope. 
+        // If the field already exists in this or a higher local scope.
         if (this.getField(symbol.identifier)?.type === 'local') {
             return false;
         }
@@ -36,7 +36,7 @@ export class SymbolTable {
                 return mySymbol;
             }
             // Note that we can fall past this if a local is defined in the same scope AFTER the reference,
-            // thus avoiding hoisting locals and accidentally shadowing globals. 
+            // thus avoiding hoisting locals and accidentally shadowing globals.
         }
         return this.parent?.getField(ident);
     }

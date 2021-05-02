@@ -32,11 +32,11 @@ class Runtime implements IRuntime {
         this.client = new Client();
 
         this.loadEvents();
-        
-        if(!this.persistent.has(this.tokenVarName)) {
+
+        if (!this.persistent.has(this.tokenVarName)) {
             await this.persistent.declare(this.tokenVarName, '', x => this.notifySet(this.tokenVarName, x));
         }
-        
+
         if (!this.token) {
             console.error('Provide a bot token in config.json.');
             process.exit();
@@ -84,6 +84,7 @@ class Runtime implements IRuntime {
                 for (const [command, rest] of viableCommands.reverse()) {
                     try {
                         // It's the command's responsibility to do argument handling
+                        // eslint-disable-next-line no-await-in-loop
                         if (await command(msg, rest) !== 'failed-args') {
                             break;
                         }
@@ -175,8 +176,9 @@ class Persistence {
     private lastPolled: number = -1;
     private lastEdited: number = -1;
     private data: { [name: string]: PersistenceEntry } = {};
-    
+
     private processSavedData(data: any) {
+        // eslint-disable-next-line guard-for-in
         for (const varName in this.data) {
             const entry = this.data[varName];
             if (varName in data) {
@@ -206,7 +208,7 @@ class Persistence {
     /** Avoid using this function and use `refreshIfNeeded` instead. */
     async refresh() {
         try {
-            this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, {encoding: 'utf-8'})));
+            this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, { encoding: 'utf-8' })));
             this.lastEdited = Date.now();
         }
         catch (e) {
@@ -234,7 +236,6 @@ class Persistence {
             }
             catch (e) {
                 await this.commitNow();
-                return;
             }
         }
     }
@@ -253,24 +254,26 @@ class Persistence {
     private debouncedCommit?: () => Promise<void>;
     /** Commits may be debounced */
     async commit() {
-        this.debouncedCommit ??= debounce(async () => await this.commitNow(), 1000, false);
+        this.debouncedCommit ??= debounce(async () => this.commitNow(), 1000, false);
         await this.debouncedCommit();
     }
 
-    async declare(varName: string, value: any, onUpdate: (newVal: any) => void, pushChanges = true) {
+    async declare(varName: string, value: any, onUpdate: (newVal: any) => void) {
         this.data[varName] = {
             data: undefined,
             default: value,
             updateCallback: onUpdate
         };
-        if (pushChanges) {
-            await this.refreshIfNeeded();
-        }
+        await this.refreshIfNeeded();
     }
 
     async declareAll(vars: [varName: string, value: any, onUpdate: (newVal: any) => void][]) {
-        for (const varDecl of vars) {
-            await this.declare(...varDecl, false);
+        for (const [varName, value, onUpdate] of vars) {
+            this.data[varName] = {
+                data: undefined,
+                default: value,
+                updateCallback: onUpdate
+            };
         }
         await this.refreshIfNeeded();
     }
@@ -285,7 +288,7 @@ class Persistence {
 
     /**
      * Issues callback synchronously, saves asynchronously
-     * 
+     *
      * Other fields may be temporarily out of date from config on disk
     */
     async setNested(varName: string, referenceChain: (string | number)[], value: any) {
@@ -354,7 +357,7 @@ class CommandTree {
 
 class Events {
     private eventListeners: { [eventName: string]: ((...args: any[]) => void)[] } = {};
-    
+
     register(eventName: string, listener: (...args: any[]) => void) {
         if (eventName in this.eventListeners) {
             this.eventListeners[eventName].push(listener);
@@ -365,7 +368,7 @@ class Events {
         if (eventName in this.eventListeners) {
             const index = this.eventListeners[eventName].indexOf(listener);
             if (index >= 0) {
-                this.eventListeners[eventName].splice(index, 1)
+                this.eventListeners[eventName].splice(index, 1);
                 return true;
             }
         }

@@ -50,9 +50,9 @@ export class BindingsGenerator implements ASTListener {
     }
 
     /**
-     * 
+     *
      * @param ast The `ASTNode` associated with the new symbol table
-     * @param fields 
+     * @param fields
      */
     pushST(ast: ASTNode, fields?: Identifier[], type: SymbolType = 'local') {
         this.currentST = new SymbolTable(this.currentST, toSymbols(type, fields));

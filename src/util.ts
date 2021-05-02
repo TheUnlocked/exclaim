@@ -31,6 +31,7 @@ export function isValidVariableName(str: string) {
         return false;
     }
     try {
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval
         new Function(`let ${str}`)();
         return !(str in globalThis);
     }
