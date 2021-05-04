@@ -427,7 +427,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     visitNumber(ctx: NumberContext): NumberLiteral {
         if (ctx.ILLEGAL_NUMBER()) {
             this.pushError(new CompilerError(
-                ErrorType.InvalidNumber,
+                ErrorType.InvalidNumberSyntax,
                 this.getSourceInfo(ctx),
                 'Invalid number syntax; this may be because of invalid numeric seperators (underscores) or a decimal point in an exponentiation term'
             ));

@@ -1,7 +1,7 @@
 import { CompilerError, ErrorType } from '../CompilerError';
 import { ASTListener, ASTNode, ASTNodeType, CommandDefinition, DeclareVariable, EventListenerDefinition, ForEach, FunctionDefinition, Identifier, If, isValueStatement, While } from '../parser/AST';
 import { optionToList } from '../util';
-import { SemanticInfo } from './SemanticInfo';
+import { CompilerInfo } from '../CompilerInfo';
 import { SymbolTable, SymbolType } from './SymbolTable';
 
 // This cache will always obey the ASTNode id invariant since
@@ -31,19 +31,19 @@ function toSymbols(type: SymbolType, identifiers: Identifier[] | undefined) {
 }
 
 export interface BindingsGeneratorOptions {
-    semanticInfo: SemanticInfo;
+    compilerInfo: CompilerInfo;
     pushError(error: CompilerError): void;
     globalFields: string[];
 }
 
 export class BindingsGenerator implements ASTListener {
-    info: SemanticInfo;
+    info: CompilerInfo;
     pushError: (error: CompilerError) => void;
 
     currentST: SymbolTable;
 
     constructor(options: BindingsGeneratorOptions) {
-        this.info = options.semanticInfo;
+        this.info = options.compilerInfo;
         this.pushError = options.pushError;
         this.currentST = new SymbolTable(undefined, toSymbols('const', builtins(options.globalFields)));
         this.info.rootSymbolTable = this.currentST;

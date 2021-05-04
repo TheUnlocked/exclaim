@@ -1,13 +1,13 @@
-import { CharStreams, CommonTokenStream, ConsoleErrorListener, ParserRuleContext } from 'antlr4ts';
+import { CharStreams, CommonTokenStream, ConsoleErrorListener } from 'antlr4ts';
 import fs from 'fs';
-import { CompilerError, ErrorType } from '../CompilerError';
+import { CompilerError, defaultErrorSeverities, ErrorType, severityToString } from '../CompilerError';
 import { Exclaim } from '../parser/generated/Exclaim';
 import { ExclaimLexer } from '../parser/generated/ExclaimLexer';
 import { sourceInfoToString } from '../parser/SourceInfo';
 
 export function printErrors(errors: CompilerError[]) {
     for (const error of errors) {
-        console.error(`EXCLM(${error.type}) Pos ${sourceInfoToString(error.source)}: ${error.message}.`);
+        console.error(`${severityToString(defaultErrorSeverities[error.type])} EXCLM(${error.type}) Pos ${sourceInfoToString(error.source)}: ${error.message}.`);
     }
 }
 

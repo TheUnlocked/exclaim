@@ -13,6 +13,10 @@ interface IRuntime {
     notifySet(varName: string, newValue: any): void;
     sendMessage(channel: Channel | string, message: any): Promise<Message>;
     reactToMessage(channelIfNeeded: Channel, message: Message | string, emote: EmojiResolvable): Promise<void>;
+
+    runDistribution(distribution: string, value: any[]): any;
+    /** Throw on failure */
+    runParser(parser: string, value: any): any;
 }
 
 class Runtime implements IRuntime {
@@ -94,6 +98,14 @@ class Runtime implements IRuntime {
                 }
             }
         });
+    }
+
+    runDistribution(distribution: string, value: any[]) {
+        throw new Error(`${distribution} is not a valid distribution.`);
+    }
+
+    runParser(parser: string, value: any) {
+        throw new Error(`${parser} is not a valid parser.`);
     }
 
     async sendMessage(channel: Channel | string, message: any) {

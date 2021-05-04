@@ -1,3 +1,5 @@
+import STree from '@jayrbolton/suffix-tree';
+
 // https://stackoverflow.com/a/50125960/4937286
 export type DiscriminateUnion<T, K extends keyof T, V extends T[K]> = T extends Record<K, V> ? T : never;
 
@@ -38,4 +40,46 @@ export function isValidVariableName(str: string) {
     catch (e) {
         return false;
     }
+}
+
+const validFirstChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$'.split('');
+const validChars = validFirstChars.concat('0123456789'.split(''));
+export function* uniqueNamesIterator(str: string): Generator<string, string> {
+    // Uses the algorithm described here: https://cs.stackexchange.com/a/39700
+
+    const tree = STree.create(str);
+
+    const queue = [] as { path: string, node?: STree.SNode }[];
+
+    for (const char of validFirstChars) {
+        if (tree.root.children[char]) {
+            queue.push({ path: char, node: tree.root.children[char] });
+        }
+        else {
+            yield char;
+            queue.push({ path: char });
+        }
+    }
+
+    while (true) {
+        const next = queue.shift()!;
+        const { path, node } = next;
+        for (const char of validChars) {
+            if (node?.children[char]) {
+                queue.push({ path: path + char, node: node.children[char] });
+            }
+            else {
+                yield path + char;
+                queue.push({ path: path + char });
+            }
+        }
+    }
+}
+export function uniqueNames(str: string, count: number) {
+    const gen = uniqueNamesIterator(str);
+    const arr = new Array(count) as string[];
+    for (let i = 0; i < count; i++) {
+        arr[i] = gen.next().value;
+    }
+    return arr;
 }
