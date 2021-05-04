@@ -413,7 +413,7 @@ export const ASTNode = createASTNode as unknown as {
         type: Type,
         source: SourceInfo,
         node: Omit<Node, 'id' | 'type' | 'source' | keyof __ASTNode_Prototype>
-    ): Node & __ASTNode_Prototype;
+    ): Node;
 };
 
 export type ASTNode =

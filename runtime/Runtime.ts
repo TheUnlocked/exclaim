@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import { debounce } from 'debounce';
 import { Channel, Client, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
+import { partitionArray } from '../src/util';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 
@@ -130,22 +131,6 @@ class Runtime implements IRuntime {
             throw new Error(`Failed to find emoji ${emote}.`);
         }
     }
-}
-
-function partitionArray<T>(arr: T[], callback: (value: T, index: number, arr: T[]) => boolean): [T[], T[]] {
-    const matches = [] as T[];
-    const second = [] as T[];
-
-    for (let i = 0; i < arr.length; i++) {
-        if (callback(arr[i], i, arr)) {
-            matches.push(arr[i]);
-        }
-        else {
-            second.push(arr[i]);
-        }
-    }
-
-    return [matches, second];
 }
 
 function updateObject(original: any, updated: any): boolean {

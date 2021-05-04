@@ -10,21 +10,23 @@ module.exports = {
                 test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
-                    configFile: '../tsconfig.json'
+                    configFile: '../tsconfig.bundle.json'
                 },
-                exclude: /node_modules/,
-            },
-        ],
+                exclude: /node_modules/
+            }
+        ]
     },
     resolve: {
         extensions: ['.ts', '.js']
     },
-    externals: {
-        'ffmpeg-static': 'undefined',
-        'zlib-sync': 'undefined'
-    },
+    externals: [
+        {
+            'zlib-sync': 'undefined'
+        },
+        /voice/
+    ],
     output: {
-        path: path.resolve(__dirname, '../out'),
+        path: path.resolve(__dirname, '../bundle'),
         filename: 'Runtime.js',
         library: {
             type: 'commonjs2',

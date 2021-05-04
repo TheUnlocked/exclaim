@@ -1,15 +1,18 @@
 {
   "scripts": {
-    "pre-build": "npm run antlr4 && npm run typecheck",
-    "build:cli": "webpack",
-    "build:runtime": "cd runtime && webpack",
-    "build:both": "concurrently \"npm:build:cli\" \"npm:build:runtime\"",
-    "build:full": "npm run pre-build && npm run build:both",
+    "pre-build": "npm run antlr4 && npm run lint",
+    "build:cli": "tsc",
+    "build:full": "npm run pre-build && npm run build:cli",
+    "bundle:cli": "webpack",
+    "bundle:runtime": "cd runtime && webpack",
+    "bundle:both": "concurrently \"npm:bundle:cli\" \"npm:bundle:runtime\"",
+    "bundle:full": "npm run pre-build && npm run bundle:both",
+    "clean": "rimraf build bundle",
     "test": "mocha",
     "lint": "eslint -c .eslintrc --ext .ts src test runtime/Runtime.ts",
     "lint:fix": "npm run lint -- --fix",
-    "typecheck": "tsc --incremental --noEmit",
-    "antlr4": "antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4"
+    "typecheck": "tsc --noEmit",
+    "antlr4": "rimraf src/parser/generated && antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4"
   },
   "devDependencies": {
     "@types/assert": "^1.5.4",
@@ -25,6 +28,7 @@
     "eslint-config-airbnb-typescript": "^12.3.1",
     "eslint-plugin-import": "^2.22.1",
     "mocha": "^8.3.2",
+    "rimraf": "^3.0.2",
     "ts-loader": "^9.1.1",
     "ts-node": "^9.1.1",
     "typescript": "^4.2.4",

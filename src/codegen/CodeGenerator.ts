@@ -51,7 +51,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         const contextDeclaration = `const $context=${JSON.stringify(defaultContext)};`;
         const vars = `${contextDeclaration}${ast.declarations.filter(x => x.type === ASTNodeType.DeclareVariable).map(x => x.accept(this)).join('')}`;
         const functions = ast.declarations.filter(x => x.type === ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
-        const commandsAndEvents = ast.declarations.filter(x => x.type === ASTNodeType.CommandDefinition || x.type === ASTNodeType.EventListenerDefinition).map(x => x.accept(this)).join('');
+        const commandsEventsGroups = ast.declarations.filter(x => x.type !== ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
 
         this.initializationPromises.push(`$runtime.persistent.declareAll([${
             this.dataDeclarations
@@ -59,7 +59,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 .join(',')
         }])`);
 
-        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsAndEvents}$runtime.start();});`;
+        const behavior = `Promise.all([${this.initializationPromises.join(',')}]).then(()=>{${commandsEventsGroups}$runtime.start();});`;
 
         return `${imports}${vars}${functions}${behavior}`;
     }
@@ -125,21 +125,21 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         switch (ast.restParamVariant) {
             case 'list':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},...${ast.restParam!.accept(this)}]`;
-                paramList = "$$rest.split(' ').filter(x=>x)";
+                paramList = "$rest.split(' ').filter(x=>x)";
                 break;
             case 'string':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},${ast.restParam!.accept(this)}]`;
-                paramList = `/^${ast.parameters.map(() => '(.+?) +').join('')}(.+)$/.exec($$rest).slice(1)`;
+                paramList = `/^${ast.parameters.map(() => '(.+?) +').join('')}(.+)$/.exec($rest).slice(1)`;
                 break;
             case 'none':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')}]`;
-                paramList = "$$rest.split(' ').filter(x=>x)";
+                paramList = "$rest.split(' ').filter(x=>x)";
         }
-        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$$rest)=>{$context.message=message;`;
+        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$rest)=>{$context.message=message;`;
         const paramDeclarations = `let ${[...ast.parameters, ...[ast.restParam] ?? []].map(x => `${x?.accept(this)}`).join(',')};`;
-        const restDecomposition = `const $$paramList=${paramList};`;
-        const paramCheck = `if($$paramList.length<${ast.parameters.length})return'failed-args';`;
-        const paramAssigment = `${paramStructure}=$$paramList;`;
+        const restDecomposition = `const $paramList=${paramList};`;
+        const paramCheck = `if($paramList.length<${ast.parameters.length})return'failed-args';`;
+        const paramAssigment = `${paramStructure}=$paramList;`;
         const parameterHandling = ast.parameters.length > 0 || ast.restParamVariant !== 'none' ? `${paramDeclarations}{${restDecomposition}${paramCheck}${paramAssigment}}` : '';
         const footer = '$context.message=undefined;});';
         return `${header}${parameterHandling}${this.statements(ast.statements)}${footer}`;

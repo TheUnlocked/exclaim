@@ -8,16 +8,19 @@ module.exports = {
         rules: [
             {
                 test: /\.ts$/,
-                use: 'ts-loader',
-                exclude: /node_modules/,
-            },
-        ],
+                loader: 'ts-loader',
+                options: {
+                    configFile: 'tsconfig.bundle.json'
+                },
+                exclude: /node_modules/
+            }
+        ]
     },
     resolve: {
-        extensions: ['.ts', '.js'],
+        extensions: ['.ts', '.js']
     },
     output: {
-        path: path.resolve(__dirname, 'out'),
+        path: path.resolve(__dirname, 'bundle'),
         filename: 'exclaim.js'
     }
 };

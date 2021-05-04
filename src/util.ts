@@ -25,6 +25,22 @@ export function optionToList<T>(...args: T[]): NonNullable<T>[] {
     return args.filter((x): x is NonNullable<T> => x != null);
 }
 
+export function partitionArray<T>(arr: T[], callback: (value: T, index: number, arr: T[]) => boolean): [T[], T[]] {
+    const matches = [] as T[];
+    const second = [] as T[];
+
+    for (let i = 0; i < arr.length; i++) {
+        if (callback(arr[i], i, arr)) {
+            matches.push(arr[i]);
+        }
+        else {
+            second.push(arr[i]);
+        }
+    }
+
+    return [matches, second];
+}
+
 /** While this function should be safe, because of the use of `new Function()`,
  * is it discouraged to use this function with unsanitized user input. */
 export function isValidVariableName(str: string) {
@@ -42,7 +58,7 @@ export function isValidVariableName(str: string) {
     }
 }
 
-const validFirstChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$'.split('');
+const validFirstChars = '$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'.split('');
 const validChars = validFirstChars.concat('0123456789'.split(''));
 export function* uniqueNamesIterator(str: string): Generator<string, string> {
     // Uses the algorithm described here: https://cs.stackexchange.com/a/39700

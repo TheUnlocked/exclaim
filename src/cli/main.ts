@@ -39,6 +39,11 @@ Options:
     process.exit(0);
 }
 
+if (!fs.existsSync(inFile)) {
+    console.error(`Could not find file '${inFile}'.`);
+    process.exit(1);
+}
+
 const verbosity = {
     info: ErrorSeverity.Info,
     warn: ErrorSeverity.Warning,
