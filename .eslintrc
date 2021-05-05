@@ -4,7 +4,7 @@
     "parserOptions": {
         "ecmaVersion": 2020,
         "sourceType": "module",
-        "project": "./tsconfig.json"
+        "project": "./tsconfig.eslint.json"
     },
     "plugins": [
         "@typescript-eslint"
@@ -48,6 +48,8 @@
         "no-constant-condition": ["error", {
             "checkLoops": false
         }],
-        "no-param-reassign": "off"
+        "no-param-reassign": "off",
+        "func-names": "off",
+        "consistent-return": "off"
     }
 }

@@ -47,7 +47,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitProgram(ast: Program): string {
-        const imports = 'const $runtime=require("./Runtime.js");';
+        const imports = 'import $runtime from"./Runtime.js";';
         const contextDeclaration = `const $context=${JSON.stringify(defaultContext)};`;
         const vars = `${contextDeclaration}${ast.declarations.filter(x => x.type === ASTNodeType.DeclareVariable).map(x => x.accept(this)).join('')}`;
         const functions = ast.declarations.filter(x => x.type === ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');

@@ -1,6 +1,7 @@
+import fsSync from 'fs';
 import fs from 'fs/promises';
-import { debounce } from 'debounce';
 import { Channel, Client, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
+import debounce from './debounce';
 import { partitionArray } from '../src/util';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
@@ -34,11 +35,15 @@ class Runtime implements IRuntime {
     events: Events = new Events();
 
     async start() {
+        process.on('exit', () => {
+            this.persistent.commitNowSync(true);
+        });
+
         this.client = new Client();
 
         this.loadEvents();
 
-        if (!this.persistent.has(this.tokenVarName)) {
+        if (!this.token) {
             await this.persistent.declare(this.tokenVarName, '', x => this.notifySet(this.tokenVarName, x));
         }
 
@@ -251,42 +256,67 @@ class Persistence {
         }
     }
 
-    private async commitNow() {
+    debouncedCommit = debounce(async () => {
         const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
         try {
-            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data), { encoding: 'utf-8' });
+            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
             this.lastEdited = Date.now();
         }
         catch (e) {
             console.error(`${this.CONFIG_PATH} cannot be written to.`);
         }
+    }, 500);
+
+    /**
+     * This should only be run when saving persistent data is urgent and must be synchronous, such as following an exit event.
+     *
+     * @param urgent If true, skip resolving promises. This should only be used if the program is about to exit, as it could result in breaking control flow otherwise.
+     */
+    commitNowSync(urgent = false) {
+        const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
+        try {
+            fsSync.writeFileSync(this.CONFIG_PATH, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
+            this.lastEdited = Date.now();
+        }
+        catch (e) {
+            console.error(`${this.CONFIG_PATH} cannot be written to.`);
+        }
+        if (!urgent) {
+            this.debouncedCommit.resolve();
+        }
     }
 
-    private debouncedCommit?: () => Promise<void>;
-    /** Commits may be debounced */
-    async commit() {
-        this.debouncedCommit ??= debounce(async () => this.commitNow(), 1000, false);
-        await this.debouncedCommit();
+    async commitNow() {
+        this.debouncedCommit();
+        await this.debouncedCommit.flush();
+    }
+
+    /**
+     * Because commits may be debounced, awaiting is discouraged if the following code requires any degree of urgency.
+     * If awaited, control flow will only resume once the debounced call has completed.
+     */
+    commit() {
+        return this.debouncedCommit();
     }
 
     async declare(varName: string, value: any, onUpdate: (newVal: any) => void) {
         this.data[varName] = {
-            data: undefined,
+            data: value,
             default: value,
             updateCallback: onUpdate
         };
-        await this.refreshIfNeeded();
+        await this.refresh();
     }
 
     async declareAll(vars: [varName: string, value: any, onUpdate: (newVal: any) => void][]) {
         for (const [varName, value, onUpdate] of vars) {
             this.data[varName] = {
-                data: undefined,
+                data: value,
                 default: value,
                 updateCallback: onUpdate
             };
         }
-        await this.refreshIfNeeded();
+        await this.refresh();
     }
 
     /** Issues callback synchronously, saves asynchronously */

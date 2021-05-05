@@ -1,6 +1,6 @@
-import minimist from 'minimist';
 import fs from 'fs';
-import { CompilerError, defaultErrorSeverities, ErrorSeverity } from '../CompilerError';
+import minimist from 'minimist';
+import { CompilerError, defaultErrorSeverities, ErrorSeverities, ErrorSeverity } from '../CompilerError';
 import { ASTGenerator } from '../parser/ASTGenerator';
 import { CompilerInfo } from '../CompilerInfo';
 import { BindingsGenerator } from '../semantic/BindingsGenerator';
@@ -14,7 +14,7 @@ const args = minimist(process.argv.slice(2), {
         help: ['h', '?'],
         'warn-is-error': ['w']
     },
-    boolean: ['fail-on-warn', 'ignore-errors', 'gcc'],
+    boolean: ['fail-on-warn', 'ignore-errors'],
     string: ['file', 'out', 'verbosity']
 });
 
@@ -28,6 +28,7 @@ if (args.help || !inFile) {
 Options:
     -f, --file              The source file to compile.
     -o, --out               The file to write the compiled output to.
+                            If --emit-package-json is not set, it is recommended to make the file extension .mjs.
                             If omitted, the output will be written to stdout.
     -w, --warn-is-error     Treat warnings as errors. (default: false)
     --ignore-errors         Prevent compiler errors from stopping compilation when possible. (default: false)
@@ -75,14 +76,15 @@ const outputCode = ast.accept(new CodeGenerator({
     pushError: e => errors.push(e)
 }));
 
+const severities = Object.fromEntries(Object.entries(defaultErrorSeverities).map(([key, val]) => [key, val === ErrorSeverity.Warning ? ErrorSeverity.Error : val])) as ErrorSeverities;
 const writeToFile = Boolean(args.out);
-const applicableErrors = errors.filter(x => defaultErrorSeverities[x.type] >= verbosity);
+const applicableErrors = errors.filter(x => severities[x.type] >= verbosity);
 
 if (applicableErrors.length > 0) {
     if (writeToFile || !ignoreErrors) {
-        printErrors(applicableErrors);
+        printErrors(applicableErrors, severities);
     }
-    if (!ignoreErrors && applicableErrors.some(x => defaultErrorSeverities[x.type] === ErrorSeverity.Error)) {
+    if (!ignoreErrors && applicableErrors.some(x => severities[x.type] === ErrorSeverity.Error)) {
         process.exit(1);
     }
 }

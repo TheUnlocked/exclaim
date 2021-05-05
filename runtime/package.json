@@ -1,12 +1,8 @@
 {
     "dependencies": {
         "bufferutil": "^4.0.3",
-        "debounce": "^1.2.1",
         "discord.js": "^12.5.3",
         "erlpack": "^0.1.3",
         "utf-8-validate": "^5.0.4"
-    },
-    "devDependencies": {
-        "@types/debounce": "^1.2.0"
     }
 }

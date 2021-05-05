@@ -13,6 +13,10 @@ module.exports = {
                     configFile: '../tsconfig.bundle.json'
                 },
                 exclude: /node_modules/
+            },
+            {
+                test: /prism-media|Secretbox/,
+                loader: 'null-loader'
             }
         ]
     },
@@ -22,8 +26,7 @@ module.exports = {
     externals: [
         {
             'zlib-sync': 'undefined'
-        },
-        /voice/
+        }
     ],
     output: {
         path: path.resolve(__dirname, '../bundle'),
@@ -33,4 +36,7 @@ module.exports = {
             export: 'default'
         }
     }
+    // optimization: {
+    //     minimize: false
+    // }
 };

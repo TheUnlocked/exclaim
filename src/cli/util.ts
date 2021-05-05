@@ -1,13 +1,13 @@
 import { CharStreams, CommonTokenStream, ConsoleErrorListener } from 'antlr4ts';
 import fs from 'fs';
-import { CompilerError, defaultErrorSeverities, ErrorType, severityToString } from '../CompilerError';
+import { CompilerError, defaultErrorSeverities, ErrorSeverities, ErrorType, severityToString } from '../CompilerError';
 import { Exclaim } from '../parser/generated/Exclaim';
 import { ExclaimLexer } from '../parser/generated/ExclaimLexer';
 import { sourceInfoToString } from '../parser/SourceInfo';
 
-export function printErrors(errors: CompilerError[]) {
+export function printErrors(errors: CompilerError[], severities: ErrorSeverities) {
     for (const error of errors) {
-        console.error(`${severityToString(defaultErrorSeverities[error.type])} EXCLM(${error.type}) Pos ${sourceInfoToString(error.source)}: ${error.message}.`);
+        console.error(`${severityToString(severities[error.type])} EXCLM(${error.type}) Pos ${sourceInfoToString(error.source)}: ${error.message}.`);
     }
 }
 
@@ -19,7 +19,7 @@ export function generateParseTreeFromFile(filename: string, errors: CompilerErro
     } });
 
     if (errors.length > 0) {
-        printErrors(errors);
+        printErrors(errors, defaultErrorSeverities);
         process.exit(1);
     }
 
@@ -33,7 +33,7 @@ export function generateParseTreeFromFile(filename: string, errors: CompilerErro
     const parseTree = parser.program();
 
     if (errors.length > 0) {
-        printErrors(errors);
+        printErrors(errors, defaultErrorSeverities);
         process.exit(1);
     }
 
