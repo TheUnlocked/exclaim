@@ -10,7 +10,7 @@ module.exports = {
                 test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
-                    configFile: '../tsconfig.bundle.json'
+                    configFile: './tsconfig.bundle.json'
                 },
                 exclude: /node_modules/
             },

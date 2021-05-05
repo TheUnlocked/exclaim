@@ -2,7 +2,7 @@ import fsSync from 'fs';
 import fs from 'fs/promises';
 import { Channel, Client, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
 import debounce from './debounce';
-import { partitionArray } from '../src/util';
+import { partitionArray } from './util';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 

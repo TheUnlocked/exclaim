@@ -14,13 +14,13 @@ const args = minimist(process.argv.slice(2), {
         help: ['h', '?'],
         'warn-is-error': ['w']
     },
-    boolean: ['fail-on-warn', 'ignore-errors'],
+    boolean: ['fail-on-warn', 'bypass-errors'],
     string: ['file', 'out', 'verbosity']
 });
 
 const inFile = args.file ?? args._[0] as string;
 const outFile = args.out as string;
-const ignoreErrors = args['ignore-errors'];
+const bypassErrors = args['bypass-errors'];
 
 if (args.help || !inFile) {
     console.log(`Usage: node exclaim [options] <[-f|--file] entry-file>
@@ -28,10 +28,10 @@ if (args.help || !inFile) {
 Options:
     -f, --file              The source file to compile.
     -o, --out               The file to write the compiled output to.
-                            If --emit-package-json is not set, it is recommended to make the file extension .mjs.
+                            It is recommended to make the file extension .mjs so that node will run it properly.
                             If omitted, the output will be written to stdout.
     -w, --warn-is-error     Treat warnings as errors. (default: false)
-    --ignore-errors         Prevent compiler errors from stopping compilation when possible. (default: false)
+    --bypass-errors         Prevent compiler errors from stopping compilation when possible. (default: false)
                             Errors will still be printed according to the verbosity level if -o is provided.
     -v, --verbosity <info|warn|error>
                             Sets the verbosity level. (default: warn)
@@ -81,10 +81,10 @@ const writeToFile = Boolean(args.out);
 const applicableErrors = errors.filter(x => severities[x.type] >= verbosity);
 
 if (applicableErrors.length > 0) {
-    if (writeToFile || !ignoreErrors) {
+    if (writeToFile || !bypassErrors) {
         printErrors(applicableErrors, severities);
     }
-    if (!ignoreErrors && applicableErrors.some(x => severities[x.type] === ErrorSeverity.Error)) {
+    if (!bypassErrors && applicableErrors.some(x => severities[x.type] === ErrorSeverity.Error)) {
         process.exit(1);
     }
 }
