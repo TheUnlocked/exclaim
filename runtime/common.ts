@@ -261,6 +261,9 @@ export class Events {
         if (eventName in this.eventListeners) {
             this.eventListeners[eventName].push(listener);
         }
+        else {
+            this.eventListeners[eventName] = [listener];
+        }
     }
 
     deregister(eventName: string, listener: (...args: any[]) => void) {
@@ -275,8 +278,10 @@ export class Events {
     }
 
     dispatch(eventName: string, ...args: any[]) {
-        for (const listener of this.eventListeners[eventName]) {
-            listener(...args);
+        if (eventName in this.eventListeners) {
+            for (const listener of this.eventListeners[eventName]) {
+                listener(...args);
+            }
         }
     }
 }

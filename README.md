@@ -29,6 +29,8 @@ Exclaim! is not suited for all projects. Due to the ability to embed arbitrary J
 
 Because of the ability of Exclaim! to import JavaScript modules, it may make sense in some cases to use Exclaim! to implement simpler features while implementing more complex and specialized features by hand in JavaScript.
 
+It is also possible to integrate with Exclaim! runtimes without using the Exclaim! language. Some developers may find this preferable to using the language and to writing boilerplate by hand. However, keep in mind that some parts of the Exclaim! runtime API are designed under the assumption that the runner will handle certain tasks on its own (e.g. command argument parsing) and that certain features will notify the runtime when they are invoked (e.g. setting a `temp` or `data` variable). Before considering this approach, developers should first familiarize themselves with how the Exclaim! language and runtime communicate normally.
+
 ## How to use
 
 ### Things you need before you start
@@ -125,7 +127,7 @@ Notice the "Copy" button under "Token". You will use this button to retrieve you
 
 ### Running compiled code
 
-To run compiled code, run `node programname.mjs` in the same directory as a bundled `Runtime.js` file. Make sure that the file extension of your compiled program is `.mjs`, or it WILL NOT WORK. This is a limitation of Node rather than a limitation of the runtime.
+To run compiled code, run `node my_compiled_program.mjs` in the same directory as a bundled `Runtime.js` file. Make sure that the file extension of your compiled program is `.mjs`, or it WILL NOT WORK. This is a limitation of Node rather than a limitation of the runtime.
 
 The first time you run your program, it will automatically generate a `config.json` file and prompt you to input your bot token. Place your bot token into the `token` field in `config.json` and re-run the program.
 
@@ -133,3 +135,23 @@ The first time you run your program, it will automatically generate a `config.js
 
 A variety of samples are included in the samples directory.
  
+
+## Todo
+
+* Write more tests.
+* Implement runtimes for other target platforms.
+
+Many useful potential language features have not yet been designed and implemented. Some notable ones are:
+
+* Command permissions syntax, including restricting channels.
+* `send ... in ...` syntax to send a message in a specific channel.
+* A variety of other actions, particularly surrounding moderation.
+    * These include:
+        * delete message, reaction, etc.
+        * create channel, roles, invite, etc.
+        * assign roles
+        * ban
+    * It may make sense to develop some mechanism for invoking niche runtime-specific actions rather than baking all of these actions into the syntax.
+* Mechanism for determining whether the runtime supports a particular feature (e.g. not all platforms allow reacting) 
+* Some try-catch mechanism ("else anywhere"?)
+* Automatic sanitization (e.g. to avoid @everyone injection)

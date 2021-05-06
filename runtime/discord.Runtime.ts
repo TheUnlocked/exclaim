@@ -1,16 +1,16 @@
-import { Channel, Client, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
+import { Channel, Client, ClientEvents, Constants, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
 import { Command, CommandTree, Events, IRuntime, Persistence } from './common';
 
-class Runtime implements IRuntime<Message, Channel, EmojiResolvable> {
+export class DiscordRuntime implements IRuntime<Message, Channel, EmojiResolvable> {
     readonly platform = 'discord';
 
-    private tokenVarName = 'token';
-    private prefixVarName = 'prefix';
+    tokenVarName = 'token';
+    prefixVarName = 'prefix';
 
-    private prefix = '!';
-    private token: string = '';
+    prefix = '!';
+    token: string = '';
 
-    private client!: Client;
+    client!: Client;
 
     persistent: Persistence = new Persistence();
     commands: CommandTree<Message> = new CommandTree();
@@ -89,6 +89,8 @@ class Runtime implements IRuntime<Message, Channel, EmojiResolvable> {
                 }
             }
         });
+
+        Object.values(Constants.Events).forEach(x => this.client.on(x as keyof ClientEvents, (...args) => this.events.dispatch(x, args)));
     }
 
     runDistribution(distribution: string, value: any[]) {
@@ -127,4 +129,4 @@ class Runtime implements IRuntime<Message, Channel, EmojiResolvable> {
     }
 }
 
-export default new Runtime();
+export default new DiscordRuntime();
