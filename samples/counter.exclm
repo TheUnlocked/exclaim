@@ -4,3 +4,8 @@ command count [
     set counter to counter + 1
     send counter
 ]
+
+command reload [
+    {await $runtime.persistent.refresh()}
+    send "Reloaded config! New counter value: {counter}"
+]

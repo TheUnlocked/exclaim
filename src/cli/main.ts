@@ -1,6 +1,7 @@
 import fs from 'fs';
+import path from 'path';
 import minimist from 'minimist';
-import { CompilerError, defaultErrorSeverities, ErrorSeverities, ErrorSeverity } from '../CompilerError';
+import { CompilerError, defaultErrorSeverities, ErrorSeverities, ErrorSeverity, ErrorType } from '../CompilerError';
 import { ASTGenerator } from '../parser/ASTGenerator';
 import { CompilerInfo } from '../CompilerInfo';
 import { BindingsGenerator } from '../semantic/BindingsGenerator';
@@ -59,7 +60,22 @@ const ast = parseTree.accept(new ASTGenerator({
     pushError: e => errors.push(e),
     sourceFile: inFile,
     sortDeclarations: true,
-    importFile: filename => generateParseTreeFromFile(filename, errors)
+    importFile: ast => {
+        switch (path.extname(ast.filename)) {
+            // In the case of no file extension we'll just fall back to Node's normal rules.
+            case '.js': case '.mjs': case '.cjs': case '':
+                return true;
+            case '.exclm':
+                return generateParseTreeFromFile(ast.filename, errors);
+            default:
+                errors.push(new CompilerError(
+                    ErrorType.UnknownImportFileType,
+                    ast.source,
+                    `Unknown file extension for file ${ast.filename}.`
+                ));
+                return false;
+        }
+    }
 }));
 
 const compilerInfo = new CompilerInfo();
@@ -72,7 +88,7 @@ ast.walk(new BindingsGenerator({
 
 const outputCode = ast.accept(new CodeGenerator({
     compilerInfo,
-    fileImport: 'no-emit',
+    fileImport: 'import',
     pushError: e => errors.push(e)
 }));
 

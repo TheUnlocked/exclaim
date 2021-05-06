@@ -2,7 +2,7 @@ import { ErrorNode } from 'antlr4ts/tree/ErrorNode';
 import { ParseTree } from 'antlr4ts/tree/ParseTree';
 import { RuleNode } from 'antlr4ts/tree/RuleNode';
 import { TerminalNode } from 'antlr4ts/tree/TerminalNode';
-import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext } from './generated/Exclaim';
+import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext, ParamContext, RestListParamContext, RestStringParamContext } from './generated/Exclaim';
 import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, ExprStatement, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression, Program } from './AST';
 import { ExclaimVisitor } from './generated/ExclaimVisitor';
 import { SourceInfo } from './SourceInfo';
@@ -12,22 +12,11 @@ export type ASTGeneratorOptions = {
     sourceFile: string;
     pushError(error: CompilerError): void;
     /**
-     * If a file should not be imported (e.g. because the file has already been imported),
-     * `importFile` should return undefined.
-     *
-     * If importing should be not be handled by the `ASTGenerator`, `importFile` should be excluded
-     * from the options object.
-     *
-     * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
+     * If a file should not be imported (e.g. because the file has already been imported), `importFile` should return false.
+     * If the import should emit a `FileImport` AST node, `importFile` should return true.
+     * If a file contents should be included in the AST, parse it and return its `ProgramContext`.
      */
-    importFile?: (filename: string) => ProgramContext | undefined;
-    /**
-     * Whether or not `FileImport` nodes should be emitted in the AST.
-     * If both `importFile` is excluded and `emitFileImportNode` is `false`, a `CompilerError` will be thrown on file import.
-     *
-     * Default: true if importFile is provided, false otherwise
-     */
-    emitFileImportNode?: boolean;
+    importFile: (fileImport: FileImport) => ProgramContext | boolean;
     /**
      * Whether or not to sort declarations by putting imports at the top,
      * then temp/data, then functions, then groups/commands/event listeners.
@@ -56,15 +45,13 @@ function declarationSorter(a: Declaration, b: Declaration) {
 export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     sourceFile: string;
     pushError: (error: CompilerError) => void;
-    importFile?: (filename: string) => ProgramContext | undefined;
-    emitFileImportNode: boolean;
+    importFile: (fileImport: FileImport) => ProgramContext | boolean;
     sortDeclarations: boolean;
 
     constructor(options: ASTGeneratorOptions) {
         this.sourceFile = options.sourceFile;
         this.pushError = options.pushError;
         this.importFile = options.importFile;
-        this.emitFileImportNode = options.emitFileImportNode ?? options.importFile == null;
         this.sortDeclarations = options.sortDeclarations ?? true;
     }
 
@@ -91,21 +78,15 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         const declarations = [] as Declaration[];
         for (const declCtx of ctx.topLevelDeclaration()) {
             const decl = declCtx.accept(this) as Declaration;
+
             if (decl.type === ASTNodeType.FileImport) {
-                if (this.emitFileImportNode) {
-                    declarations.push(decl);
-                }
-                if (this.importFile) {
+                const importInfo = this.importFile(decl);
+                if (importInfo instanceof ProgramContext) {
                     const astGen = new ASTGenerator({ ...this, sourceFile: decl.filename });
-                    const imported = this.importFile(decl.filename)?.accept(astGen) as Program | undefined;
-                    declarations.push(...imported?.declarations ?? []);
+                    declarations.push(...(importInfo.accept(astGen) as Program).declarations);
                 }
-                else if (!this.emitFileImportNode) {
-                    this.pushError(new CompilerError(
-                        ErrorType.FileImportNotSupported,
-                        decl.source,
-                        'File import is not supported'
-                    ));
+                else if (importInfo) {
+                    declarations.push(decl);
                 }
             }
             else {
@@ -251,10 +232,11 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     }
 
     visitIfStatement(ctx: IfStatementContext): If {
+        const [ifStatements, elseStatements] = ctx.functionBlock();
         return new ASTNode(ASTNodeType.If, this.getSourceInfo(ctx), {
             checkExpression: ctx.expr().accept(this) as Expression,
-            thenStatements: this.getStatements(ctx.functionBlock(0)),
-            elseStatements: this.getStatements(ctx.functionBlock(1))
+            thenStatements: this.getStatements(ifStatements),
+            elseStatements: elseStatements ? this.getStatements(elseStatements) : undefined
         });
     }
 
@@ -396,6 +378,22 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
             referenceChain
         });
     }
+
+    visitParam(ctx: ParamContext | RestListParamContext | RestStringParamContext): Identifier {
+        if (ctx.identifier()) {
+            return new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
+                name: ctx.identifier()!.text,
+                implicit: false
+            });
+        }
+        return new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
+            name: 'it',
+            implicit: true
+        });
+    }
+
+    visitRestListParam = this.visitParam;
+    visitRestStringParam = this.visitParam;
 
     visitIdentifier(ctx: IdentifierContext): Identifier {
         return new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {

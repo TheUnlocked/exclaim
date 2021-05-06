@@ -1,6 +1,33 @@
 # Exclaim! Language
 
-Exclaim! is a domain-specific langauge for the purpose of rapid and easy development of bots for chat services such as Discord. This repository includes a compiler for Exclaim! as well as a Discord runtime target.
+Exclaim! is a domain-specific langauge for the purpose of rapid and easy development of text bots that demand a common but constrained set of behaviors for chat services such as Discord. This repository includes a compiler for Exclaim! as well as a Discord runtime.
+
+## Why Exclaim!?
+
+### Major Features
+
+* Reduced boilerplate
+    * There is a large amount of boilerplate involved with writing a bot to perform even the most basic tasks, most of which has been offloaded to the runtime and does not need to be written by the developer.
+* Low-effort commands
+    * Prefix-style commands can be declared with a simple syntax that allows accepting arguments to commands, and command groups allow for multi-word commands which can overload shorter commands that take arguments. Implementing this by hand can be tricky, but Exclaim! handles it automatically.
+* Low-effort persistent data
+    * Persistent data can be declared with zero configuration using the `data` keyword, and changes will be written to and read from file routinely to ensure data consistency.
+* Low-effort asynchronicity
+    * Exclaim! is fully asynchronous and won't get blocked waiting for IO or networking to complete (note that this requires runtime compliance, but runtimes are supposed to avoid blocking and the provided Discord runtime obeys this).
+* In-line JavaScript embedding
+    * While Exclaim! provides langauge mechanisms for computing simple expressions, often this will not be enough. Rather than attempting to give Exclaim! the full expressiveness of a general purpose language, Exclaim! instead allows the user to embed JavaScript directly in-line.
+* JavaScript importing
+    * For more complex behavior, Exclaim! allows for importing functions and objects from JavaScript files.
+* Multiple target platforms
+    * While only a Discord runtime has been implemented so far, in theory, the same Exclaim! code can be used for any number of runtimes running bots on any number of different target platforms as long as the code doesn't depend on runtime-specific features.
+
+### Why not Exclaim!?
+
+Exclaim! is not suited for all projects. Due to the ability to embed arbitrary JavaScript, it is theoretically possible to write bots that perform any behavior you want, but it is not necessarily ergonomic to do so in all cases. When Exclaim! does not fit the set of behaviors your bot requires, you SHOULD NOT use Exclaim!. In a similar vein, if you are beginning to write more Exclaim! code to perform a task than you would if you were implementing the bot from scratch in a general purpose language, you SHOULD NOT use Exclaim!.
+
+### Use alongside JavaScript
+
+Because of the ability of Exclaim! to import JavaScript modules, it may make sense in some cases to use Exclaim! to implement simpler features while implementing more complex and specialized features by hand in JavaScript.
 
 ## How to use
 
@@ -78,7 +105,23 @@ Options:
 
 ### Setting up a discord bot
 
-TODO
+This site has a great tutorial on creating a bot account: [https://discordpy.readthedocs.io/en/stable/discord.html]()
+
+However, if you'd prefer to stay on this readme, here are the instructions:
+
+1. Create a Discord account at [https://discord.com]() if you do not have one already.
+2. Navigate to [https://discord.com/developers/applications]().
+3. Click "New Application" and give your bot a name.
+4. Navigate to the "Bot" tab on the left.
+5. Click "Add Bot" and confirm. Once you have done this, you may wish to disable "public bot" for testing.
+
+Notice the "Copy" button under "Token". You will use this button to retrieve your token when running the bot. **Do not share this token with anyone.**
+
+6. Navigate to the "OAuth2" tab on the left.
+7. Under "OAuth2 URL Generator", tick the "bot" checkbox.
+8. Under "Bot Permissions", tick checkboxes for whichever permissions you need your bot to have access to. "Send Messages" is an important one, and "Add Reactions" may be useful as well.
+9. Copy and paste the URL into your browser. This will let you add a bot to a server you have the "Manage Server" permissions for. If you don't have any such servers, you can always create a new server in the Discord client under "Add a Server" on the left and then "Create My Own".
+10. Once you have selected the server, press "Continue" and then press "Authorize".
 
 ### Running compiled code
 

@@ -1,4 +1,4 @@
-import STree from '@jayrbolton/suffix-tree';
+import STree from './reexports/suffix-tree';
 
 // https://stackoverflow.com/a/50125960/4937286
 export type DiscriminateUnion<T, K extends keyof T, V extends T[K]> = T extends Record<K, V> ? T : never;
@@ -98,4 +98,9 @@ export function uniqueNames(str: string, count: number) {
         arr[i] = gen.next().value;
     }
     return arr;
+}
+
+export function uniqueName(str: string) {
+    const gen = uniqueNamesIterator(str);
+    return gen.next().value;
 }

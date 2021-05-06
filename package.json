@@ -1,4 +1,5 @@
 {
+  "sideEffects": false,
   "scripts": {
     "pre-build": "npm run antlr4",
     "build:cli": "tsc",

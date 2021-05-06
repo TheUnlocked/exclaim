@@ -21,8 +21,13 @@ module.exports = {
         ]
     },
     resolve: {
-        extensions: ['.ts', '.js']
+        extensions: ['.ts', '.js'],
+        // https://github.com/node-fetch/node-fetch/issues/450#issuecomment-494475397
+        mainFields: ['main']
     },
+    ignoreWarnings: [
+        /^Module not found: Error: Can't resolve 'encoding'/
+    ],
     externals: [
         {
             'zlib-sync': 'undefined'
@@ -35,8 +40,8 @@ module.exports = {
             type: 'commonjs2',
             export: 'default'
         }
+    },
+    optimization: {
+        minimize: false
     }
-    // optimization: {
-    //     minimize: false
-    // }
 };

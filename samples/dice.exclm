@@ -1,0 +1,15 @@
+command roll $ [
+    n <- parse it as integer else [
+        send "{it} is not a valid integer!"
+    ]
+    if n < 2 [
+        send "The die needs to have at least two sides!"
+        fail
+    ]
+    send "You rolled {Math.floor(Math.random() * n) + 1}!"
+]
+
+command d6 [
+    pick random from [1, 2, 3, 4, 5, 6]
+    send it
+]

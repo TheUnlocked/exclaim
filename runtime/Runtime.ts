@@ -1,12 +1,15 @@
-import fsSync from 'fs';
 import fs from 'fs/promises';
+import fsSync from 'fs';
+import path from 'path';
 import { Channel, Client, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
 import debounce from './debounce';
-import { partitionArray } from './util';
+import { partitionArray } from '../src/util';
 
 type Command = (message: Message, rest: string) => Promise<'failed-args' | undefined>;
 
 interface IRuntime {
+    readonly platform: string;
+
     persistent: Persistence;
     commands: CommandTree;
     events: Events;
@@ -22,6 +25,8 @@ interface IRuntime {
 }
 
 class Runtime implements IRuntime {
+    readonly platform = 'discord';
+
     private tokenVarName = 'token';
     private prefixVarName = 'prefix';
 
@@ -40,7 +45,6 @@ class Runtime implements IRuntime {
         });
 
         this.client = new Client();
-
         this.loadEvents();
 
         if (!this.token) {
@@ -52,13 +56,14 @@ class Runtime implements IRuntime {
             process.exit();
         }
         await this.client.login(this.token);
+        console.log(`Started at ${new Date()}`);
     }
 
     /** This must be called whenever a temp or data variable is set */
     notifySet(varName: string, newValue: any) {
         switch (varName) {
-            case this.prefixVarName: this.prefix = `${newValue}`; break;
             case this.tokenVarName: this.token = `${newValue}`; break;
+            case this.prefixVarName: this.prefix = `${newValue}`; break;
         }
     }
 
@@ -72,6 +77,7 @@ class Runtime implements IRuntime {
                 const viableCommands = [] as [command: Command, rest: string][];
                 while (true) {
                     let index = rest.indexOf(' ');
+                    index = index < 0 ? rest.length : index;
                     const command = rest.slice(0, index);
 
                     while (rest[++index] === ' ');
@@ -98,7 +104,9 @@ class Runtime implements IRuntime {
                         }
                     }
                     catch (e) {
-                        console.error(`Command failed on message id ${msg.id}`, e);
+                        if (e !== 'handled' && !e.message.startsWith('Intentionally failed')) {
+                            console.error(`Command unexpectedly failed on message id ${msg.id}:\n`, e);
+                        }
                         break;
                     }
                 }
@@ -193,9 +201,14 @@ class Persistence {
     private lastEdited: number = -1;
     private data: { [name: string]: PersistenceEntry } = {};
 
-    private processSavedData(data: any) {
+    get configPath() {
+        return path.resolve(__dirname, this.CONFIG_PATH);
+    }
+
+    private processSavedData(data: any, except?: string) {
         // eslint-disable-next-line guard-for-in
         for (const varName in this.data) {
+            if (varName === except) continue;
             const entry = this.data[varName];
             if (varName in data) {
                 const originalVal = entry.data;
@@ -222,9 +235,9 @@ class Persistence {
     }
 
     /** Avoid using this function and use `refreshIfNeeded` instead. */
-    async refresh() {
+    async refresh(except?: string) {
         try {
-            this.processSavedData(JSON.parse(await fs.readFile(this.CONFIG_PATH, { encoding: 'utf-8' })));
+            this.processSavedData(JSON.parse(await fs.readFile(this.configPath, { encoding: 'utf-8' })), except);
             this.lastEdited = Date.now();
         }
         catch (e) {
@@ -237,16 +250,16 @@ class Persistence {
         }
     }
 
-    async refreshIfNeeded() {
+    async refreshIfNeeded(except?: string) {
         if (this.lastPolled + this.POLLING_RATE < Date.now()) {
             try {
-                const stats = await fs.stat(this.CONFIG_PATH);
+                const stats = await fs.stat(this.configPath);
 
                 // 2ms error window. Abs because we still want to capture edits made in the future.
                 if (Math.abs(stats.mtime.getTime() - this.lastEdited) > 2) {
                     // avoid races by immediately updating it
                     this.lastEdited = stats.mtime.getTime();
-                    this.refresh();
+                    this.refresh(except);
                 }
                 this.lastPolled = Date.now();
             }
@@ -259,13 +272,13 @@ class Persistence {
     debouncedCommit = debounce(async () => {
         const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
         try {
-            await fs.writeFile(this.CONFIG_PATH, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
+            await fs.writeFile(this.configPath, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
             this.lastEdited = Date.now();
         }
         catch (e) {
             console.error(`${this.CONFIG_PATH} cannot be written to.`);
         }
-    }, 500);
+    }, 1000);
 
     /**
      * This should only be run when saving persistent data is urgent and must be synchronous, such as following an exit event.
@@ -275,7 +288,7 @@ class Persistence {
     commitNowSync(urgent = false) {
         const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
         try {
-            fsSync.writeFileSync(this.CONFIG_PATH, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
+            fsSync.writeFileSync(this.configPath, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
             this.lastEdited = Date.now();
         }
         catch (e) {
@@ -305,6 +318,7 @@ class Persistence {
             default: value,
             updateCallback: onUpdate
         };
+        onUpdate(value);
         await this.refresh();
     }
 
@@ -315,6 +329,7 @@ class Persistence {
                 default: value,
                 updateCallback: onUpdate
             };
+            onUpdate(value);
         }
         await this.refresh();
     }
@@ -322,8 +337,8 @@ class Persistence {
     /** Issues callback synchronously, saves asynchronously */
     async set(varName: string, value: any) {
         this.data[varName].updateCallback(value);
-        await this.refreshIfNeeded();
         this.data[varName].data = value;
+        await this.refreshIfNeeded(varName);
         await this.commit();
     }
 

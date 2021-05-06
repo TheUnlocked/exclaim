@@ -1,5 +1,5 @@
 import { SymbolTable } from './semantic/SymbolTable';
-import { uniqueNames } from './util';
+import { uniqueName } from './util';
 
 export type EventsMap = { [event: string]: string[] };
 export type DistributionsMap = { [distribution: string]: (collectionExpr: string) => string };
@@ -30,13 +30,14 @@ export const defaultEvents: EventsMap = {};
 
 export const defaultDistributions: DistributionsMap = {
     first: x => `${x}[0]`,
-    last: x => (([name]) => `(${name}=>${name}[${name}.length-1])(${x})`)(uniqueNames(x, 1)),
-    random: x => (([name]) => `(${name}=>${name}[Math.floor(Math.random()*${name}.length)])(${x})`)(uniqueNames(x, 1))
+    last: x => `(x=>x[x.length-1])(${x})`,
+    random: x => `(x=>x[Math.floor(Math.random()*x.length)])(${x})`
 };
 
 export const defaultParsers: ParsersMap = {
     json: x => `JSON.parse(${x})`,
-    number: x => `Number(${x})`,
+    number: x => `(x=>{if(isNaN(x))throw new Error('Not a number!');return x;})(Number(${x}))`,
+    integer: x => `(x=>{if(Math.floor(x)!==x)throw new Error('Not an integer!');return x;})(Number(${x}))`,
     boolean: x => `Boolean(${x})`,
     string: x => `String(${x})`
 };

@@ -32,7 +32,7 @@ export class SymbolTable {
             const mySymbol = this.fields[ident.name];
             // Has this variable been declared yet?
             // If it's not local, the answer must be yes.
-            if (mySymbol.type !== 'local' || mySymbol.identifier.id < ident.id) {
+            if (mySymbol.type !== 'local' || mySymbol.identifier.id <= ident.id) {
                 return mySymbol;
             }
             // Note that we can fall past this if a local is defined in the same scope AFTER the reference,

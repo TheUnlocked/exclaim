@@ -50,6 +50,7 @@
         }],
         "no-param-reassign": "off",
         "func-names": "off",
-        "consistent-return": "off"
+        "consistent-return": "off",
+        "no-continue": "off"
     }
 }

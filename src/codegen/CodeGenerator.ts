@@ -3,7 +3,7 @@ import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral,
 import { sourceInfoToString } from '../parser/SourceInfo';
 import { CompilerInfo } from '../CompilerInfo';
 import { SymbolTable } from '../semantic/SymbolTable';
-import { isValidVariableName, zip } from '../util';
+import { isValidVariableName, optionToList, uniqueName, zip } from '../util';
 
 function produceValidVariableName(varName: string) {
     if (isValidVariableName(varName)) {
@@ -12,7 +12,7 @@ function produceValidVariableName(varName: string) {
     return `$${varName}`;
 }
 
-type FileImportOption = 'no-emit' | 'require' | ((file: string) => string);
+type FileImportOption = 'no-emit' | 'require' | 'import' | ((file: string) => string);
 
 export interface CodeGeneratorOptions {
     compilerInfo: CompilerInfo;
@@ -47,11 +47,31 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitProgram(ast: Program): string {
-        const imports = 'import $runtime from"./Runtime.js";';
+        const runtimeImport = 'import $runtime from"./Runtime.js";';
         const contextDeclaration = `const $context=${JSON.stringify(defaultContext)};`;
-        const vars = `${contextDeclaration}${ast.declarations.filter(x => x.type === ASTNodeType.DeclareVariable).map(x => x.accept(this)).join('')}`;
-        const functions = ast.declarations.filter(x => x.type === ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
-        const commandsEventsGroups = ast.declarations.filter(x => x.type !== ASTNodeType.FunctionDefinition).map(x => x.accept(this)).join('');
+
+        const importDeclarations = [] as ASTNode[];
+        const varDeclarations = [] as ASTNode[];
+        const functionDeclarations = [] as ASTNode[];
+        const commandsEventsGroupsDeclarations = [] as ASTNode[];
+
+        for (const declaration of ast.declarations) {
+            switch (declaration.type) {
+                case ASTNodeType.FileImport: case ASTNodeType.ModuleImport:
+                    importDeclarations.push(declaration); break;
+                case ASTNodeType.DeclareVariable:
+                    varDeclarations.push(declaration); break;
+                case ASTNodeType.FunctionDefinition:
+                    functionDeclarations.push(declaration); break;
+                case ASTNodeType.CommandDefinition: case ASTNodeType.EventListenerDefinition: case ASTNodeType.GroupDefinition:
+                    commandsEventsGroupsDeclarations.push(declaration); break;
+            }
+        }
+
+        const imports = `${runtimeImport}${importDeclarations.map(x => x.accept(this)).join('')}`;
+        const vars = `${contextDeclaration}${varDeclarations.map(x => x.accept(this)).join('')}`;
+        const functions = functionDeclarations.map(x => x.accept(this)).join('');
+        const commandsEventsGroups = commandsEventsGroupsDeclarations.map(x => x.accept(this)).join('');
 
         this.initializationPromises.push(`$runtime.persistent.declareAll([${
             this.dataDeclarations
@@ -69,7 +89,10 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
             return this.fileImport(ast.filename);
         }
         if (this.fileImport === 'require') {
-            return `require(${ast.filename});`;
+            return `require(${JSON.stringify(ast.filename)});`;
+        }
+        if (this.fileImport === 'import') {
+            return `import ${JSON.stringify(ast.filename)};`;
         }
         return '';
     }
@@ -87,7 +110,8 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         if (ast.variant === 'temp') {
             return `let ${name}=${ast.value.accept(this)};${this.notifySet(ast.name)}`;
         }
-        this.dataDeclarations.push([name, ast.value.accept(this), `$x=>{${name}=$x;${this.notifySet(ast.name)}}`]);
+        const notify = this.notifySet(ast.name);
+        this.dataDeclarations.push([name, ast.value.accept(this), (temp => `${temp}=>{${name}=${temp};${notify}}`)(uniqueName(notify))]);
         return `let ${name};`;
     }
 
@@ -135,8 +159,8 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')}]`;
                 paramList = "$rest.split(' ').filter(x=>x)";
         }
-        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],(message,$rest)=>{$context.message=message;`;
-        const paramDeclarations = `let ${[...ast.parameters, ...[ast.restParam] ?? []].map(x => `${x?.accept(this)}`).join(',')};`;
+        const header = `$runtime.commands.add(${JSON.stringify(ast.name.name)},[${this.getGroupChain(ast.group).map(x => JSON.stringify(x)).join(',')}],async(message,$rest)=>{$context.message=message;`;
+        const paramDeclarations = `let ${[...ast.parameters, ...optionToList(ast.restParam)].map(x => `${x?.accept(this)}`).join(',')};`;
         const restDecomposition = `const $paramList=${paramList};`;
         const paramCheck = `if($paramList.length<${ast.parameters.length})return'failed-args';`;
         const paramAssigment = `${paramStructure}=$paramList;`;
@@ -261,15 +285,16 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitParse(ast: Parse): string {
+        const elseCode = `${this.statements(ast.elseStatements)}throw'handled';`;
         if (ast.parser in this.compilerInfo.parsers) {
-            return this.assignment(ast, this.compilerInfo.parsers[ast.parser](ast.expression.accept(this)), this.statementsWithReturn(ast.elseStatements));
+            return this.assignment(ast, this.compilerInfo.parsers[ast.parser](ast.expression.accept(this)), elseCode);
         }
         this.pushError(new CompilerError(
             ErrorType.UndefinedDistribution,
             ast.source,
             `The parser type ${ast.parser} is not known to the compiler. A runtime parser will be used instead.`
         ));
-        return this.assignment(ast, `$runtime.runParser('${ast.parser}', ${ast.expression.accept(this)})`, this.statementsWithReturn(ast.elseStatements));
+        return this.assignment(ast, `$runtime.runParser('${ast.parser}', ${ast.expression.accept(this)})`, elseCode);
     }
 
     visitExprStatement(ast: ExprStatement): string {
@@ -290,7 +315,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitRelationalExpression(ast: RelationalExpression): string {
         const segments = [] as string[];
-        for (let i = 0; ast.operators.length; i++) {
+        for (let i = 0; i < ast.operators.length; i++) {
             const op = ast.operators[i] as string;
             segments.push(`(${ast.expressions[i].accept(this)})${op}(${ast.expressions[i + 1].accept(this)})`);
         }

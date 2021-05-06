@@ -18,7 +18,8 @@ export enum ErrorType {
     SetToLocal,
     UndefinedVariable,
     UndefinedDistribution,
-    UndefinedParser
+    UndefinedParser,
+    UnknownImportFileType
 }
 
 export class CompilerError extends Error {
@@ -73,5 +74,6 @@ export const defaultErrorSeverities: ErrorSeverities = {
     [ErrorType.SetToLocal]: ErrorSeverity.Error,
     [ErrorType.UndefinedVariable]: ErrorSeverity.Error,
     [ErrorType.UndefinedDistribution]: ErrorSeverity.Warning,
-    [ErrorType.UndefinedParser]: ErrorSeverity.Warning
+    [ErrorType.UndefinedParser]: ErrorSeverity.Warning,
+    [ErrorType.UnknownImportFileType]: ErrorSeverity.Error
 };
