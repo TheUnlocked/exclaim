@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-    entry: './Runtime.ts',
+    entry: './discord.Runtime.ts',
     target: 'node',
     mode: 'production',
     module: {
