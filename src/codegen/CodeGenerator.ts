@@ -212,7 +212,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitReact(ast: React): string {
-        return `$runtime.reactToMessage($runtime.getChannelFromMessage($context.message),${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)});`;
+        return `$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)});`;
     }
 
     visitFail(ast: Fail): string {

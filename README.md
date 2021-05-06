@@ -138,20 +138,39 @@ A variety of samples are included in the samples directory.
 
 ## Todo
 
+### Requires implementation
+
+* None right now!
+
+### Requires design
+
+* `... in ...` syntax to perform an action in a specific channel (e.g. `send ... in ...`).
+* Command permissions syntax, including restricting channels.
+* A variety of other actions, particularly surrounding moderation (and how many of these fall within the scope of Exclaim!?).
+    * find message, channel, user, etc.
+    * edit message
+    * delete message, reaction, etc.
+    * create channel, roles, invite, etc.
+    * assign roles
+    * ban/kick
+    * nick
+    * etc.
+* Automatic sanitization (e.g. to avoid @everyone injection)
+* Some try-catch mechanism ("else anywhere"?)
+* Mechanism to await asynchronous actions, e.g. send (`wait for ...`?)
+    * Note that `send` already has a mechanism for doing this, but it requires sending it to a variable.
+* Mechanism for determining whether the runtime supports a particular feature (e.g. not all platforms have channels, allow reacting, etc.).
+* Serialization and deserialization for special types stored in `data` variables.
+
+### Design issues/questions
+
+* Weird that channel information needs to be passed to runtime for some APIs when some platforms may not have a concept of channels.
+    * Send `$context` object instead and let the runtime figure it out?
+* Some requirements are opaque to users, but matter to platforms, e.g. the idea that you need a channel to locate a message in Discord.
+    * According to [Discord's developer documentation](https://discord.com/developers/docs/reference#snowflakes) snowflakes (or IDs) "are guaranteed to be unique across all of Discord." Despite this, Discord doesn't offer an API to find a message by ID in general, so you need to know the channel that a message is located in in order to fetch it. In theory, the Discord runtime could query every channel it knows about, but that sounds like a recipe for getting rate limited.
+* Make sure that `discord.js` has a mechanism for automatically avoiding rate limits/temporary cloudflare bans. If not, implement such a mechanism to avoid people screwing themselves with `while true [ <forbidden action> ]` code.
+
+### Evergreen
+
 * Write more tests.
 * Implement runtimes for other target platforms.
-
-Many useful potential language features have not yet been designed and implemented. Some notable ones are:
-
-* Command permissions syntax, including restricting channels.
-* `send ... in ...` syntax to send a message in a specific channel.
-* A variety of other actions, particularly surrounding moderation.
-    * These include:
-        * delete message, reaction, etc.
-        * create channel, roles, invite, etc.
-        * assign roles
-        * ban
-    * It may make sense to develop some mechanism for invoking niche runtime-specific actions rather than baking all of these actions into the syntax.
-* Mechanism for determining whether the runtime supports a particular feature (e.g. not all platforms allow reacting) 
-* Some try-catch mechanism ("else anywhere"?)
-* Automatic sanitization (e.g. to avoid @everyone injection)

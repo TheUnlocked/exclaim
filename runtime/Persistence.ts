@@ -4,24 +4,6 @@ import path from 'path';
 import debounce from './debounce';
 import { updateObject } from './util';
 
-export interface IRuntime<TMessage = any, TChannel = any, TEmoji = any> {
-    readonly platform: string;
-
-    persistent: Persistence;
-    commands: CommandTree<TMessage>;
-    events: Events;
-
-    start(): Promise<void>;
-    notifySet(varName: string, newValue: any): void;
-    getChannelFromMessage(message: TMessage): TChannel;
-    sendMessage(channel: TChannel, message: any): Promise<TMessage>;
-    reactToMessage(channelIfNeeded: TChannel, message: TMessage, emote: TEmoji): Promise<void>;
-
-    runDistribution(distribution: string, value: any[]): any;
-    /** Throw on failure */
-    runParser(parser: string, value: any): any;
-}
-
 export type PersistenceEntry = {
     data: any,
     default: any,
@@ -215,73 +197,5 @@ export class Persistence {
     async has(varName: string) {
         await this.refreshIfNeeded();
         return varName in this.data;
-    }
-}
-
-export type Command<TMessage = any> = (message: TMessage, rest: string) => Promise<'failed-args' | undefined>;
-
-export class CommandTree<TMessage = any> {
-    private branches: { [name: string]: CommandTree<TMessage> | undefined } = {};
-    command: Command<TMessage> | undefined;
-
-    add(commandName: string, groupChain: string[], command: Command<TMessage>) {
-        if (groupChain.length === 0) {
-            const existing = this.branches[commandName];
-            if (existing instanceof CommandTree) {
-                existing.command = command;
-            }
-            else {
-                const newTree = new CommandTree<TMessage>();
-                newTree.command = command;
-                this.branches[commandName] = newTree;
-            }
-        }
-        else {
-            const existing = this.branches[groupChain[0]];
-            if (existing === undefined) {
-                const newTree = new CommandTree<TMessage>();
-                newTree.add(commandName, groupChain.slice(1), command);
-                this.branches[groupChain[0]] = newTree;
-            }
-            else {
-                existing.add(commandName, groupChain.slice(1), command);
-            }
-        }
-    }
-
-    find(name: string) {
-        return this.branches[name];
-    }
-}
-
-export class Events {
-    private eventListeners: { [eventName: string]: ((...args: any[]) => void)[] } = {};
-
-    register(eventName: string, listener: (...args: any[]) => void) {
-        if (eventName in this.eventListeners) {
-            this.eventListeners[eventName].push(listener);
-        }
-        else {
-            this.eventListeners[eventName] = [listener];
-        }
-    }
-
-    deregister(eventName: string, listener: (...args: any[]) => void) {
-        if (eventName in this.eventListeners) {
-            const index = this.eventListeners[eventName].indexOf(listener);
-            if (index >= 0) {
-                this.eventListeners[eventName].splice(index, 1);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    dispatch(eventName: string, ...args: any[]) {
-        if (eventName in this.eventListeners) {
-            for (const listener of this.eventListeners[eventName]) {
-                listener(...args);
-            }
-        }
     }
 }

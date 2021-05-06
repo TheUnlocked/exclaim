@@ -1,5 +1,8 @@
-import { Channel, Client, ClientEvents, Constants, DMChannel, EmojiResolvable, Message, NewsChannel, TextChannel } from 'discord.js';
-import { Command, CommandTree, Events, IRuntime, Persistence } from './common';
+import { Channel, Client, ClientEvents, Constants, DMChannel, EmojiResolvable, Message, TextChannel } from 'discord.js';
+import { Command, CommandTree } from './CommandTree';
+import { Events } from './Events';
+import { IRuntime } from './IRuntime';
+import { Persistence } from './Persistence';
 
 export class DiscordRuntime implements IRuntime<Message, Channel, EmojiResolvable> {
     readonly platform = 'discord';
@@ -101,24 +104,14 @@ export class DiscordRuntime implements IRuntime<Message, Channel, EmojiResolvabl
         throw new Error(`${parser} is not a valid parser.`);
     }
 
-    getChannelFromMessage(message: Message) {
-        return message.channel;
-    }
-
-    async sendMessage(channel: Channel | string, message: any) {
-        if (typeof channel === 'string') {
-            channel = await this.client.channels.fetch(channel);
-        }
+    async sendMessage(channel: Channel, message: any) {
         if (channel instanceof TextChannel || channel instanceof DMChannel) {
             return channel.send(`${message}`);
         }
         throw new Error(`Failed to send message to channel ${channel.id}.`);
     }
 
-    async reactToMessage(channelIfNeeded: Channel, message: Message | string, emote: EmojiResolvable) {
-        if (typeof message === 'string') {
-            message = await (channelIfNeeded as TextChannel | DMChannel | NewsChannel).messages.fetch(message);
-        }
+    async reactToMessage(message: Message, emote: EmojiResolvable) {
         const emoji = this.client.emojis.resolve(emote);
         if (emoji) {
             await message.react(emoji);
