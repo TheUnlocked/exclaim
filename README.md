@@ -13,7 +13,7 @@ Exclaim! is a domain-specific langauge for the purpose of rapid and easy develop
 * Low-effort persistent data
     * Persistent data can be declared with zero configuration using the `data` keyword, and changes will be written to and read from file routinely to ensure data consistency.
 * Low-effort asynchronicity
-    * Exclaim! is fully asynchronous and won't get blocked waiting for IO or networking to complete (note that this requires runtime compliance, but runtimes are supposed to avoid blocking and the provided Discord runtime obeys this).
+    * Exclaim! is designed to be asynchronous and avoid getting blocked waiting for IO or networking to complete.
 * In-line JavaScript embedding
     * While Exclaim! provides langauge mechanisms for computing simple expressions, often this will not be enough. Rather than attempting to give Exclaim! the full expressiveness of a general purpose language, Exclaim! instead allows the user to embed JavaScript directly in-line.
 * JavaScript importing

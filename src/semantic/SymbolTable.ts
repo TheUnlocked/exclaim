@@ -1,6 +1,6 @@
 import { Identifier } from '../parser/AST';
 
-export type SymbolType = 'local' | 'temp' | 'data' | 'const';
+export type SymbolType = 'local' | 'temp' | 'data' | 'const' | 'function';
 export interface SymbolInfo {
     type: SymbolType;
     identifier: Identifier;

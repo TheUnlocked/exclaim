@@ -19,7 +19,8 @@ export enum ErrorType {
     UndefinedVariable,
     UndefinedDistribution,
     UndefinedParser,
-    UnknownImportFileType
+    UnknownImportFileType,
+    AsyncInFunctionName
 }
 
 export class CompilerError extends Error {
@@ -75,5 +76,6 @@ export const defaultErrorSeverities: ErrorSeverities = {
     [ErrorType.UndefinedVariable]: ErrorSeverity.Error,
     [ErrorType.UndefinedDistribution]: ErrorSeverity.Warning,
     [ErrorType.UndefinedParser]: ErrorSeverity.Warning,
-    [ErrorType.UnknownImportFileType]: ErrorSeverity.Error
+    [ErrorType.UnknownImportFileType]: ErrorSeverity.Error,
+    [ErrorType.AsyncInFunctionName]: ErrorSeverity.Error
 };

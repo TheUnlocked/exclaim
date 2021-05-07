@@ -1,5 +1,5 @@
 import { CompilerError, ErrorType } from '../CompilerError';
-import { ASTListener, ASTNode, ASTNodeType, CommandDefinition, DeclareVariable, EventListenerDefinition, ForEach, FunctionDefinition, Identifier, If, isValueStatement, While } from '../parser/AST';
+import { ASTListener, ASTNode, ASTNodeType, CommandDefinition, DeclareVariable, EventListenerDefinition, ForEach, FunctionDefinition, GroupDefinition, Identifier, If, isValueStatement, While } from '../parser/AST';
 import { optionToList } from '../util';
 import { CompilerInfo } from '../CompilerInfo';
 import { SymbolTable, SymbolType } from './SymbolTable';
@@ -94,6 +94,10 @@ export class BindingsGenerator implements ASTListener {
         return params;
     }
 
+    enterGroupDefinition(ast: GroupDefinition) {
+        this.pushST(ast);
+    }
+
     enterCommandDefinition(ast: CommandDefinition) {
         const magicParams = ['message'];
         const params = this.getParams(ast);
@@ -110,6 +114,17 @@ export class BindingsGenerator implements ASTListener {
     }
 
     enterFunctionDefinition(ast: FunctionDefinition) {
+        // We run this because it can emit useful errors.
+        this.getParams(ast);
+
+        if (ast.name.name.endsWith('Async')) {
+            this.pushError(new CompilerError(
+                ErrorType.AsyncInFunctionName,
+                ast.name.source,
+                'Functions are async by default. Putting \'Async\' at the end of function names conflicts with internal compiler transformations'
+            ));
+        }
+        this.currentST.addField(toSymbol('function', ast.name));
         this.pushST(ast, this.getParams(ast));
     }
 
@@ -151,8 +166,8 @@ export class BindingsGenerator implements ASTListener {
 
     exitNode(ast: ASTNode) {
         switch (ast.type) {
-            case ASTNodeType.CommandDefinition: case ASTNodeType.FunctionDefinition: case ASTNodeType.EventListenerDefinition:
-            case ASTNodeType.ForEach:           case ASTNodeType.While:              case ASTNodeType.If:
+            case ASTNodeType.GroupDefinition: case ASTNodeType.CommandDefinition: case ASTNodeType.FunctionDefinition: case ASTNodeType.EventListenerDefinition:
+            case ASTNodeType.ForEach:         case ASTNodeType.While:             case ASTNodeType.If:
                 this.popST();
         }
     }

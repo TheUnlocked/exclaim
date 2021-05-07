@@ -19,14 +19,14 @@ blockDeclaration
     ;
 
 commandParams: param* (restListParam | restStringParam)?;
-functionParams: param+ restListParam?;
+functionParams: param* restListParam?;
 
 param: PARAM_SIGIL identifier?;
 restListParam: REST_LIST_SIGIL identifier?;
 restStringParam: REST_STRING_SIGIL identifier?;
 
 groupBlock: openBlock (blockDeclaration NL)* closeBlock;
-functionBlock: openBlock (statement NL)+ closeBlock;
+functionBlock: openBlock (statement NL)* closeBlock;
 
 statement
     : FOR EACH identifier IN expr functionBlock #forEachStatement
@@ -100,9 +100,9 @@ literal
     | (TRUE | FALSE) #boolLiteral
     ;
 
-list: openBlock ((expr COMMA NL?)* expr COMMA?)? closeBlock;
+list: openBlock ((expr COMMA NL?)* expr COMMA? NL?)? closeBlock;
 
-dict: openBlock ((objectKey COLON expr COMMA NL?)* objectKey COLON expr COMMA? | COLON) closeBlock;
+dict: openBlock ((objectKey COLON expr COMMA NL?)* objectKey COLON expr COMMA? NL? | COLON) closeBlock;
 
 number: NUMBER | ILLEGAL_NUMBER;
 

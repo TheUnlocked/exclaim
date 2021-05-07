@@ -1,0 +1,58 @@
+
+temp prefix "."
+
+function randRange $a $b [
+    if a < b [
+        temp <- a
+        a <- b
+        b <- temp
+    ]
+    {Math.floor(Math.random() * (b-a)) + 1 + a}
+]
+
+group random [
+    command string $...options [
+        if length of options < 1 [
+            send "You need to provide at least one option!"
+        ]
+        else [
+            pick random from options
+            send it
+        ]
+    ]
+
+    command integer $start $end [
+        start <- parse start as integer
+        end <- parse end as integer
+        send randRange(start, end)
+    ]
+
+    function getFirstName [
+        pick random from [
+            "Victor",
+            "Alice",
+            "Justin",
+        ]
+    ]
+    function getLastName [
+        pick random from [
+            "Frankenstein",
+            "Smith",
+            "Time",
+        ]
+    ]
+
+    command name [
+        send "{getFirstName()} {getLastName()}"
+    ]
+
+    group name [
+        command first [
+            send getFirstName()
+        ]
+
+        command last [
+            send getLastName()
+        ]
+    ]
+]

@@ -22,5 +22,8 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'bundle'),
         filename: 'exclaim.js'
+    },
+    optimization: {
+        minimize: false
     }
 };

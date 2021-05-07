@@ -155,6 +155,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     visitGroupDeclaration(ctx: GroupDeclarationContext): GroupDefinition {
         const group = new ASTNode(ASTNodeType.GroupDefinition, this.getSourceInfo(ctx), {
             name: ctx.identifier().accept(this) as Identifier,
+            group: this.currentGroup,
             members: []
         });
         this.pushGroup(group);

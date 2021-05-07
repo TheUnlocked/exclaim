@@ -148,11 +148,11 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         let paramStructure = '';
         switch (ast.restParamVariant) {
             case 'list':
-                paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},...${ast.restParam!.accept(this)}]`;
+                paramStructure = `[${ast.parameters.map(x => `${x.accept(this)},`).join('')}...${ast.restParam!.accept(this)}]`;
                 paramList = "$rest.split(' ').filter(x=>x)";
                 break;
             case 'string':
-                paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')},${ast.restParam!.accept(this)}]`;
+                paramStructure = `[${ast.parameters.map(x => `${x.accept(this)},`).join('')}${ast.restParam!.accept(this)}]`;
                 paramList = `/^${ast.parameters.map(() => '(.+?) +').join('')}(.+)$/.exec($rest).slice(1)`;
                 break;
             case 'none':
@@ -176,14 +176,32 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
             return undefined;
         }
         const returnStatement = statements[statements.length - 1];
-        const returnStatementCode = isValueStatement(returnStatement) ? 'return it;' : '';
+        const returnStatementCode = isValueStatement(returnStatement) ? 'return it;' : 'return;';
         return `${this.statements(statements)}${returnStatementCode}`;
     }
+
+    private inAsyncContext: boolean = true;
+    private readonly REQUIRES_ASYNC_THROW = new Error('requires-async');
 
     visitFunctionDefinition(ast: FunctionDefinition): string {
         const paramsCode = ast.parameters.map(x => x.name === '' ? 'it' : x.accept(this)).join(',');
         const restParamCode = ast.restParamVariant === 'list' ? `,...${ast.restParam?.accept(this) ?? 'it'}` : '';
-        return `async function ${ast.name.accept(this)}(${paramsCode}${restParamCode}){${this.statementsWithReturn(ast.statements)}}`;
+        const asyncVersion = `async function ${ast.name.accept(this)}Async(${paramsCode}${restParamCode}){${this.statementsWithReturn(ast.statements)}}`;
+        this.inAsyncContext = false;
+        let syncVersion: string;
+        try {
+            syncVersion = `function ${ast.name.accept(this)}(${paramsCode}${restParamCode}){${this.statementsWithReturn(ast.statements)}}`;
+        }
+        catch (e) {
+            if (e === this.REQUIRES_ASYNC_THROW) {
+                syncVersion = `function ${ast.name.accept(this)}(){throw new Error("This function cannot be run in a synchronous context. Did you mean 'await ${ast.name.accept(this)}Async(...)' instead?")}`;
+            }
+            else {
+                throw e;
+            }
+        }
+        this.inAsyncContext = true;
+        return `${asyncVersion}${syncVersion}`;
     }
 
     visitEventListenerDefinition(ast: EventListenerDefinition): string {
@@ -237,6 +255,10 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 case 'const':
                     this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a built-in variable'));
                     break;
+                case 'function':
+                    this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a function'));
+                    break;
+                case 'local':
                 default:
                     this.pushError(new CompilerError(ErrorType.SetToLocal, ast.variable.source, 'set ... to ... should not be used for local variables. Use <- instead'));
                     break;
@@ -246,16 +268,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     private assignment(ast: ValueStatement, exprCode: string, orElse?: string): string {
-        const found = this.currentSymbolTable.getField(ast.assignTo);
-        switch (found?.type) {
-            case 'const':
-                this.pushError(new CompilerError(ErrorType.AssignToConst, ast.assignTo.source, 'Cannot assign to a built-in variable'));
-                break;
-            case 'data':
-            case 'temp':
-                this.pushError(new CompilerError(ErrorType.GetsDataTemp, ast.assignTo.source, '<- should not be used for data or temp variables. Use set ... to ... instead'));
-                break;
-        }
+        // No need to check the type of the field because it will always be present as a local if it's ever assigned as a local.
 
         const shouldDeclare = ast.assignTo.id === this.currentSymbolTable.getField(ast.assignTo)?.identifier.id;
         const varName = ast.assignTo.accept(this);
@@ -267,6 +280,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitSend(ast: Send): string {
         if (ast.assignTo) {
+            if (!this.inAsyncContext) {
+                throw this.REQUIRES_ASYNC_THROW;
+            }
             return this.assignment(ast as ValueStatement, `await $runtime.sendMessage($context.message.channel,${ast.message.accept(this)})`);
         }
         return `$runtime.sendMessage($context.message.channel,${ast.message.accept(this)});`;
@@ -285,16 +301,15 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitParse(ast: Parse): string {
-        const elseCode = `${this.statements(ast.elseStatements)}throw'handled';`;
         if (ast.parser in this.compilerInfo.parsers) {
-            return this.assignment(ast, this.compilerInfo.parsers[ast.parser](ast.expression.accept(this)), elseCode);
+            return this.assignment(ast, this.compilerInfo.parsers[ast.parser](ast.expression.accept(this)), this.statementsWithReturn(ast.elseStatements));
         }
         this.pushError(new CompilerError(
             ErrorType.UndefinedDistribution,
             ast.source,
             `The parser type ${ast.parser} is not known to the compiler. A runtime parser will be used instead.`
         ));
-        return this.assignment(ast, `$runtime.runParser('${ast.parser}', ${ast.expression.accept(this)})`, elseCode);
+        return this.assignment(ast, `$runtime.runParser('${ast.parser}', ${ast.expression.accept(this)})`, this.statementsWithReturn(ast.elseStatements));
     }
 
     visitExprStatement(ast: ExprStatement): string {
@@ -340,7 +355,13 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitInvokeExpression(ast: InvokeExpression): string {
-        return `(await ${ast.function.accept(this)}(${ast.arguments.map(x => x.accept(this)).join(',')}))`;
+        if (this.inAsyncContext) {
+            if (this.currentSymbolTable.getField(ast.function)?.type === 'function') {
+                return `(await ${ast.function.accept(this)}Async(${ast.arguments.map(x => x.accept(this)).join(',')}))`;
+            }
+            return `(await ${ast.function.accept(this)}(${ast.arguments.map(x => x.accept(this)).join(',')}))`;
+        }
+        return `(${ast.function.accept(this)}(${ast.arguments.map(x => x.accept(this)).join(',')}))`;
     }
 
     visitOfExpression(ast: OfExpression): string {
