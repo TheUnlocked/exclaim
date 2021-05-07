@@ -120,7 +120,9 @@ identifier
     ;
 
 string: OPEN_STRING stringContent* CLOSE_STRING;
-stringContent: ESCAPE_SEQUENCE | STRING_CONTENTS | embeddedJS;
+stringContent: ESCAPE_SEQUENCE | STRING_CONTENTS | stringTemplate;
+
+stringTemplate: OPEN_STRING_TEMPLATE expr CLOSE_STRING_TEMPLATE;
 
 embeddedJS: OPEN_JS (JS_CONTENTS | JS_STRING | jsTemplateString | embeddedJS)* CLOSE_JS;
 jsTemplateString: JS_OPEN_TEMPLATE_STRING (JS_CONTENTS | embeddedJS)* JS_CLOSE_TEMPLATE_STRING;

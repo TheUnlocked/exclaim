@@ -310,10 +310,13 @@ export interface RawStringLiteral extends _ASTNode_Base {
     value: string;
 }
 
-export interface TemplateStringFragment {
-    type: 'javascript' | 'text';
+export type TemplateStringFragment = {
+    type: 'text';
     contents: string;
-}
+} | {
+    type: 'template';
+    contents: Expression;
+};
 
 export interface TemplateStringLiteral extends _ASTNode_Base {
     type: ASTNodeType.TemplateStringLiteral;

@@ -458,12 +458,12 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         const rawContents = ctx.text;
         const dedentOffset = getDedentOffset(ctx.start.charPositionInLine, rawContents.slice(1, rawContents.length - 1));
 
-        let fragments = ctx.stringContent().map<TemplateStringFragment & { _fromEscapeSequence?: string }>(x => {
-            const embedded = x.embeddedJS();
+        let fragments = ctx.stringContent().map<TemplateStringFragment & { _fromEscapeSequence?: boolean }>(x => {
+            const embedded = x.stringTemplate();
             if (embedded) {
                 return {
-                    type: 'javascript',
-                    contents: embedded.text.slice(1, embedded.text.length - 1)
+                    type: 'template',
+                    contents: embedded.accept(this) as Expression
                 };
             }
 
@@ -480,10 +480,12 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
                         // Single character
                         return {
                             type: 'text',
-                            contents: ESCAPE_TABLE[escape] ?? escape
+                            contents: ESCAPE_TABLE[escape] ?? escape,
+                            _fromEscapeSequence: true
                         };
                     case 3:
                         // hex
+                        // TODO
                         break;
                     default:
                 }
@@ -497,14 +499,15 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
 
         // Dedent
         fragments = fragments.map(x => {
+            // We don't want to prune whitespace generated from escape sequences.
             if (x.type === 'text' && !x._fromEscapeSequence) {
                 // eslint-disable-next-line no-param-reassign
                 x.contents = x.contents.split('\n').map((x, i) => i > 0 ? x.slice(dedentOffset) : x).join('\n');
             }
             return x;
-        }).filter(x => x.contents.length > 0);
+        }).filter(x => x.type === 'template' || x.contents.length > 0);
 
-        if (fragments.some(x => x.type === 'javascript')) {
+        if (fragments.some(x => x.type === 'template')) {
             return new ASTNode(ASTNodeType.TemplateStringLiteral, this.getSourceInfo(ctx), {
                 fragments
             });

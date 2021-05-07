@@ -140,7 +140,7 @@ A variety of samples are included in the samples directory.
 
 ### Requires implementation
 
-* None right now!
+* Finish string escape sequence parsing
 
 ### Requires design
 

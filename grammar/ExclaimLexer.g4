@@ -62,7 +62,9 @@ PARAM_SIGIL: '$';
 ID: [\p{L}] [\p{L}0-9_]*;
 
 OPEN_STRING: '"' -> pushMode(stringMode);
-OPEN_JS: '{' -> pushMode(javascriptMode);
+OPEN_JS: '{' -> pushMode(JAVASCRIPT_MODE);
+
+CLOSE_STRING_TEMPLATE: '}' -> popMode;
 
 NL: ('\n' | '\r')+;
 WS: [ \t\r]+ -> skip;
@@ -72,26 +74,26 @@ fragment LETTER: ~["\\{];
 fragment HEX: [0-9a-fA-F];
 ESCAPE_SEQUENCE: '\\' . | '\\x' HEX HEX;
 STRING_CONTENTS: LETTER+;
-STR_OPEN_JS: '{' -> type(OPEN_JS), pushMode(javascriptMode);
+OPEN_STRING_TEMPLATE: '{' -> pushMode(DEFAULT_MODE);
 CLOSE_STRING: '"' -> popMode;
 
 COMMENT: '--' .*? '\n' -> skip;
 
 // Welcome to language embedding hell
-mode javascriptMode;
-JS_OPEN_JS: '{' -> type(OPEN_JS), pushMode(javascriptMode);
+mode JAVASCRIPT_MODE;
+JS_OPEN_JS: '{' -> type(OPEN_JS), pushMode(JAVASCRIPT_MODE);
 CLOSE_JS: '}' -> popMode;
 JS_STRING
     : '\'' ('\\\'' | ~'\'')* '\''
     | '"' ('\\"' | ~'"')* '"'
     ;
-JS_OPEN_TEMPLATE_STRING: '`' -> pushMode(javascriptTemplateStringMode);
+JS_OPEN_TEMPLATE_STRING: '`' -> pushMode(JAVASCRIPT_TEMPLATE_STRING_MODE);
 JS_LINE_COMMENT: '//' .*? '\n' -> skip;
 JS_COMMENT: '/*' .*? '*/' -> skip;
 JS_CONTENTS: ~['"`{}]+;
 
-mode javascriptTemplateStringMode;
+mode JAVASCRIPT_TEMPLATE_STRING_MODE;
 JS_ESCAPE_OPEN_TEMPLATE: '\\${' -> type(JS_CONTENTS);
-JS_OPEN_TEMPLATE: '${' -> type(OPEN_JS), pushMode(javascriptMode);
+JS_OPEN_TEMPLATE: '${' -> type(OPEN_JS), pushMode(JAVASCRIPT_MODE);
 JS_TEMPLATE_STRING_CONTENTS: (~'`' | '\\`')+ -> type(JS_CONTENTS);
 JS_CLOSE_TEMPLATE_STRING: '`' -> popMode;

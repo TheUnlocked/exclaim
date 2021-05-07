@@ -23,7 +23,8 @@ export function generateAST(input: string, type: RuleNames) {
     const errors = [] as CompilerError[];
     const astGenOptions = {
         pushError: e => errors.push(e),
-        sourceFile: ''
+        sourceFile: '',
+        importFile: () => true
     } as ASTGeneratorOptions;
     const astGenerator = new ASTGenerator(astGenOptions);
     const ast = astGenerator.visit(parseTree);

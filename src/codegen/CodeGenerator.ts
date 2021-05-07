@@ -186,21 +186,25 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     visitFunctionDefinition(ast: FunctionDefinition): string {
         const paramsCode = ast.parameters.map(x => x.name === '' ? 'it' : x.accept(this)).join(',');
         const restParamCode = ast.restParamVariant === 'list' ? `,...${ast.restParam?.accept(this) ?? 'it'}` : '';
-        const asyncVersion = `async function ${ast.name.accept(this)}Async(${paramsCode}${restParamCode}){${this.statementsWithReturn(ast.statements)}}`;
-        this.inAsyncContext = false;
+        let asyncVersion: string;
         let syncVersion: string;
+
+        this.inAsyncContext = false;
         try {
             syncVersion = `function ${ast.name.accept(this)}(${paramsCode}${restParamCode}){${this.statementsWithReturn(ast.statements)}}`;
+            asyncVersion = `async function ${ast.name.accept(this)}Async(...x){return ${ast.name.accept(this)}(...x);}`;
         }
         catch (e) {
             if (e === this.REQUIRES_ASYNC_THROW) {
                 syncVersion = `function ${ast.name.accept(this)}(){throw new Error("This function cannot be run in a synchronous context. Did you mean 'await ${ast.name.accept(this)}Async(...)' instead?")}`;
+                asyncVersion = `async function ${ast.name.accept(this)}Async(${paramsCode}${restParamCode}){${this.statementsWithReturn(ast.statements)}}`;
             }
             else {
                 throw e;
             }
         }
         this.inAsyncContext = true;
+
         return `${asyncVersion}${syncVersion}`;
     }
 
@@ -381,15 +385,15 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitTemplateStringLiteral(ast: TemplateStringLiteral): string {
-        return `\`${ast.fragments.map(({ type, contents }) => {
-            if (type === 'text') {
-                const source = JSON.stringify(contents);
+        return `\`${ast.fragments.map(fragment => {
+            if (fragment.type === 'text') {
+                const source = JSON.stringify(fragment.contents);
                 if (source.startsWith('`')) {
                     return source;
                 }
                 return source.slice(1, source.length - 1).replace(/`/g, '\\`');
             }
-            return `\${${contents}}`;
+            return `\${${fragment.contents.accept(this)}}`;
         }).join('')}\``;
     }
 

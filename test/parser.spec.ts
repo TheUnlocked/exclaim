@@ -15,21 +15,13 @@ describe('class ASTGenerator', () => {
         it('should parse simple templated strings', () => {
             const ast = generateAST('"You got {x} points!"', 'expr');
             assert.equal(ast.type, ASTNodeType.TemplateStringLiteral as const);
-            assert.deepStrictEqual(ast.fragments, [
-                { type: 'text', contents: 'You got ' },
-                { type: 'javascript', contents: 'x' },
-                { type: 'text', contents: ' points!' }
-            ] as TemplateStringFragment[]);
-        });
-        it('should parse deeply nested templated strings', () => {
-            const ast = generateAST('"abc{`{{}{${"def"}`}ghi{"jkl"}"', 'expr');
-            assert.equal(ast.type, ASTNodeType.TemplateStringLiteral as const);
-            assert.deepStrictEqual(ast.fragments, [
-                { type: 'text', contents: 'abc' },
-                { type: 'javascript', contents: '`{{}{${"def"}`' },
-                { type: 'text', contents: 'ghi' },
-                { type: 'javascript', contents: '"jkl"' }
-            ] as TemplateStringFragment[]);
+            assert.equal(ast.fragments[0].type, 'text' as const);
+            assert.equal(ast.fragments[0].contents, 'You got ');
+            assert.equal(ast.fragments[1].type, 'template' as const);
+            assert.equal(ast.fragments[1].contents.type, ASTNodeType.Identifier as const);
+            assert.equal(ast.fragments[1].contents.name, 'x');
+            assert.equal(ast.fragments[2].type, 'text' as const);
+            assert.equal(ast.fragments[2].contents, ' points!');
         });
         it('should parse strings with extra closing braces as raw strings', () => {
             const ast = generateAST('"Hello}World}!"', 'expr');
@@ -44,12 +36,17 @@ describe('class ASTGenerator', () => {
         it('should fail to parse extra opening braces', () => {
             assert.throws(() => generateAST('"{{foo}"', 'expr'));
         });
-        it('should parse strings with functions in templates', () => {
-            const ast = generateAST('"{(() => { if (x > 2) { console.log("{{" + x + \'}\'); } })()}"', 'expr');
+        it('should parse strings with javascript functions in templates', () => {
+            const ast = generateAST('"{{(() => { if (x > 2) { console.log("{{" + x + \'}\'); } })()}}"', 'expr');
             assert.equal(ast.type, ASTNodeType.TemplateStringLiteral as const);
-            assert.deepStrictEqual(ast.fragments, [
-                { type: 'javascript', contents: '(() => { if (x > 2) { console.log("{{" + x + \'}\'); } })()' }
-            ] as TemplateStringFragment[]);
+            assert.equal(ast.fragments.length, 1);
+            const fragment = ast.fragments[0];
+            assert.equal(fragment.type, 'template' as const);
+            assert.equal(fragment.contents.type, ASTNodeType.JavascriptExpression as const);
+            assert.equal(fragment.contents.code, '(() => { if (x > 2) { console.log("{{" + x + \'}\'); } })()');
+        });
+        it('should parse strings with template strings in templates', () => {
+            assert.doesNotThrow(() => generateAST('"Hello, {"Mr. {getName()}"}!"', 'expr'));
         });
         it('should remove clearly unwanted whitespace', () => {
             const ast = generateAST(`            "
@@ -198,8 +195,8 @@ describe('class ASTGenerator', () => {
             assert.equal(ast.keys[0].type, ASTNodeType.TemplateStringLiteral as const);
             assert.equal(ast.keys[0].fragments[0].type, 'text');
             assert.equal(ast.keys[0].fragments[0].contents, 'this is a ');
-            assert.equal(ast.keys[0].fragments[1].type, 'javascript');
-            assert.equal(ast.keys[0].fragments[1].contents, 'key');
+            assert.equal(ast.keys[0].fragments[1].type, 'template' as const);
+            assert.equal(ast.keys[0].fragments[1].contents.type, ASTNodeType.Identifier);
         });
         it('should fail to parse dictionaries with invalid keys', () => {
             assert.throws(() => generateAST('[[]: 1]', 'expr'), 'Empty list key');
@@ -223,6 +220,13 @@ describe('class ASTGenerator', () => {
             ast = generateAST('false', 'expr');
             assert.equal(ast.type, ASTNodeType.BooleanLiteral as const);
             assert.equal(ast.value, false);
+        });
+    });
+    describe('visit(EmbeddedJSContext)', () => {
+        it('should parse deeply nested templated javascript strings', () => {
+            const ast = generateAST('{abc{`{{}{${"def"}`}ghi{"jkl"}}', 'expr');
+            assert.equal(ast.type, ASTNodeType.JavascriptExpression as const);
+            assert.equal(ast.code, 'abc{`{{}{${"def"}`}ghi{"jkl"}');
         });
     });
 });
