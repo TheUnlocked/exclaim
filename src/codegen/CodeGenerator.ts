@@ -1,5 +1,5 @@
 import { CompilerError, ErrorType } from '../CompilerError';
-import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, Pick, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement, ASTNode } from '../parser/AST';
+import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral, TemplateStringLiteral, ListLiteral, BooleanLiteral, NumberLiteral, JavascriptExpression, Identifier, OfExpression, InvokeExpression, UnaryOpExpression, BinaryOpExpression, RelationalExpression, IsExpression, ExprStatement, Parse, CollectionAccess, ValueStatement, Set, React, Fail, Send, If, While, ForEach, Statement, EventListenerDefinition, FunctionDefinition, CommandDefinition, GroupDefinition, DeclareVariable, ModuleImport, FileImport, Program, isValueStatement, ASTNode, Expression } from '../parser/AST';
 import { sourceInfoToString } from '../parser/SourceInfo';
 import { CompilerInfo } from '../CompilerInfo';
 import { SymbolTable } from '../semantic/SymbolTable';
@@ -151,7 +151,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                 break;
             case 'string':
                 paramStructure = `[${ast.parameters.map(x => `${x.accept(this)},`).join('')}${ast.restParam!.accept(this)}]`;
-                paramList = `/^${ast.parameters.map(() => '(.+?) +').join('')}(.+)$/.exec($rest).slice(1)`;
+                paramList = `/^${ast.parameters.map(() => '(.+?) +').join('')}(.*)$/.exec($rest).slice(1)`;
                 break;
             case 'none':
                 paramStructure = `[${ast.parameters.map(x => x.accept(this)).join(',')}]`;
@@ -239,33 +239,62 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         return `throw new Error('Intentionally failed at ${sourceInfoToString(ast.source)}.');`;
     }
 
-    visitSet(ast: Set): string {
-        const root = ast.variable.type === ASTNodeType.OfExpression ? ast.variable.root : ast.variable;
-        if (root.type === ASTNodeType.Identifier) {
+    private setIfDataOrTemp(ast: Expression, value?: string): { problem: 'not-ident' | 'const' | 'function' | 'local' | 'unknown' | 'none', emit: string } {
+        let root: Expression | undefined;
+        if (ast.type === ASTNodeType.OfExpression) {
+            root = ast.root;
+        }
+        else if (ast.type === ASTNodeType.Identifier) {
+            root = ast;
+        }
+
+        if (root && root.type === ASTNodeType.Identifier) {
             const found = this.currentSymbolTable.getField(root);
+            const varName = found?.identifier.accept(this);
+            value ??= varName;
             switch (found?.type) {
                 case 'data': {
-                    const val = ast.expression.accept(this);
-                    if (ast.variable.type === ASTNodeType.OfExpression) {
-                        const refChain = ast.variable.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
-                        return `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${val});${this.notifySet(found.identifier)}`;
+                    if (ast.type === ASTNodeType.OfExpression) {
+                        const refChain = ast.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
+                        return { problem: 'none', emit: `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${value});${this.notifySet(found.identifier)}` };
                     }
-                    return `$runtime.persistent.set('${found.identifier.accept(this)}',${val});${this.notifySet(found.identifier)}`;
+                    return { problem: 'none', emit: `$runtime.persistent.set('${found.identifier.accept(this)}',${value});${this.notifySet(found.identifier)}` };
                 }
                 case 'temp':
-                    return `${ast.variable.accept(this)}=${ast.expression.accept(this)};${this.notifySet(found.identifier)}`;
+                    return { problem: 'none', emit: `${ast.accept(this)}=${value};${this.notifySet(found.identifier)}` };
                 case 'const':
-                    this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a built-in variable'));
-                    break;
+                    return { problem: 'const', emit: '' };
                 case 'function':
-                    this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a function'));
-                    break;
+                    return { problem: 'function', emit: '' };
                 case 'local':
+                    return { problem: 'local', emit: '' };
                 default:
-                    this.pushError(new CompilerError(ErrorType.SetToLocal, ast.variable.source, 'set ... to ... should not be used for local variables. Use <- instead'));
-                    break;
+                    return { problem: 'unknown', emit: '' };
             }
         }
+
+        return { problem: 'not-ident', emit: '' };
+    }
+
+    visitSet(ast: Set): string {
+        const { problem, emit } = this.setIfDataOrTemp(ast.variable, ast.expression.accept(this));
+
+        switch (problem) {
+            case 'none':
+                return emit;
+            case 'const':
+                this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a built-in variable'));
+                break;
+            case 'function':
+                this.pushError(new CompilerError(ErrorType.AssignToConst, ast.variable.source, 'Cannot assign to a function'));
+                break;
+            case 'local':
+            case 'not-ident':
+            case 'unknown':
+                this.pushError(new CompilerError(ErrorType.SetToLocal, ast.variable.source, 'set ... to ... should not be used for local variables. Use <- instead'));
+                break;
+        }
+
         return `${ast.variable.accept(this)}=${ast.expression.accept(this)};`;
     }
 
@@ -290,24 +319,42 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         return `$context.follow=$context.follow.then($runtime.sendMessage($context.message.channel,${ast.message.accept(this)}));`;
     }
 
-    visitPick(ast: Pick): string {
-        if (ast.distribution in this.compilerInfo.distributions) {
-            return this.assignment(ast, this.compilerInfo.distributions[ast.distribution](ast.collection.accept(this)));
+    visitCollectionAccess(ast: CollectionAccess): string {
+        if (ast.variant === 'add') {
+            return `${ast.collection.accept(this)}.push(${ast.expression.accept(this)});${this.setIfDataOrTemp(ast.collection).emit}`;
         }
-        this.pushError(new CompilerError(
-            ErrorType.UndefinedDistribution,
-            ast.source,
-            `The distribution type ${ast.distribution} is not known to the compiler. A runtime distribution will be used instead.`
-        ));
-        return this.assignment(ast, `$runtime.runDistribution('${ast.distribution}', ${ast.collection.accept(this)})`);
+        let index: string;
+        if (ast.expression.type === ASTNodeType.Identifier) {
+            if (ast.expression.name in this.compilerInfo.distributions) {
+                index = this.compilerInfo.distributions[ast.expression.name]('x');
+            }
+            else {
+                this.pushError(new CompilerError(
+                    ErrorType.UndefinedDistribution,
+                    ast.source,
+                    `The distribution type ${ast.expression.name} is not known to the compiler. A runtime distribution will be used instead.`
+                ));
+                index = `$runtime.runDistribution('${ast.expression.name}',x)`;
+            }
+        }
+        else {
+            index = ast.expression.accept(this);
+        }
+        if (ast.variant === 'remove') {
+            return `(x=>x.splice(${index},1))(${ast.collection.accept(this)});${this.setIfDataOrTemp(ast.collection).emit}`;
+        }
+        return this.assignment(ast, `(x=>x[${index}])(${ast.collection.accept(this)})`);
     }
 
     visitParse(ast: Parse): string {
         if (ast.parser in this.compilerInfo.parsers) {
-            return this.assignment(ast, this.compilerInfo.parsers[ast.parser](ast.expression.accept(this)), this.statementsWithReturn(ast.elseStatements));
+            const parser = this.compilerInfo.parsers[ast.parser].parse;
+            if (parser) {
+                return this.assignment(ast, parser(ast.expression.accept(this)), this.statementsWithReturn(ast.elseStatements));
+            }
         }
         this.pushError(new CompilerError(
-            ErrorType.UndefinedDistribution,
+            ErrorType.UndefinedParser,
             ast.source,
             `The parser type ${ast.parser} is not known to the compiler. A runtime parser will be used instead.`
         ));
@@ -319,15 +366,18 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitIsExpression(ast: IsExpression): string {
-        // TODO: specify mechanism for which this generation can be done in a general way
-        let validationCode = 'false';
-        if (['placeholder'].includes(ast.targetType)) {
-            // todo
+        let validationCode: string;
+        const entry = this.compilerInfo.parsers[ast.targetType];
+        if (entry.test && entry.test === 'try-parse') {
+            validationCode = `(x=>{try{${entry.parse('x')};return true;}catch(e){return false;}})(${ast.expression.accept(this)})`;
+        }
+        else if (entry.test) {
+            validationCode = entry.test(ast.expression.accept(this));
         }
         else {
-            validationCode = `${ast.expression.accept(this)} instanceof ${ast.targetType}`;
+            validationCode = `(${ast.expression.accept(this)} instanceof ${ast.targetType})`;
         }
-        return `(${ast.isNot ? `!${validationCode}` : validationCode})`;
+        return `${ast.isNot ? `!${validationCode}` : validationCode}`;
     }
 
     visitRelationalExpression(ast: RelationalExpression): string {

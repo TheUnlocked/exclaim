@@ -30,6 +30,8 @@ TRUE: 'true';
 FALSE: 'false';
 AND: 'and';
 OR: 'or';
+ADD: 'add';
+REMOVE: 'remove';
 
 fragment INTEGER: [0-9]+ ('_'+ [0-9]+)*;
 NUMBER: '-'? INTEGER '.'? INTEGER? ('e' '-'? INTEGER)?;

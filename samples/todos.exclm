@@ -1,0 +1,64 @@
+data todos []
+
+command todo $$ [
+    add it to todos
+    send "\"{it}\" is now being tracked."
+]
+
+command clear $ [
+    if 0 < it <= length of todos [
+        remove {it - 1} from todos
+        send "Removed todo {it}."
+    ]
+    else [
+        send "Todo {it} does not exist."
+    ]
+]
+
+function checkEnoughTodos [
+    if length of todos == 0 [
+        send "No todos!"
+        fail
+    ]
+]
+
+group clear [
+    command all [
+        checkEnoughTodos()
+        set todos to []
+        send "Cleared all todos."
+    ]
+    command random [
+        checkEnoughTodos()
+        remove random from todos
+        send "Removed random todo."
+    ]
+]
+
+command recall $ [
+    checkEnoughTodos()
+    pick {it - 1} from todos
+    send it
+]
+
+group recall [
+    command all [
+        checkEnoughTodos()
+        send {todos.map((x, i) => `${i + 1}. ${x}`).join('\n')}
+    ]
+    command random [
+        checkEnoughTodos()
+        pick random from todos
+        send it
+    ]
+]
+
+command help [
+    send "```
+          !todo <message>           Adds message to the todo list.
+          !recall <all|random|id>   Recalls all todos, a random todo,
+                                    or the todo with the given id
+          !clear <all|random|id>    Like recall, but it removes the todos instead.
+          !help                     Prints this help message.
+          ```"
+]

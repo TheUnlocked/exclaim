@@ -31,21 +31,27 @@ functionBlock: openBlock (statement NL)* closeBlock;
 statement
     : FOR EACH identifier IN expr functionBlock #forEachStatement
     | WHILE expr functionBlock #whileStatement
-    | IF expr functionBlock (ELSE functionBlock)? #ifStatement
+    | ifStatement #ifStatement_
+    | SET lvalue TO expr #setStatement
     | FAIL #failStatement
+    | ADD expr TO expr #addToStatement
+    | REMOVE distribution FROM expr #removeFromStatement
     | REACT WITH expr #reactStatement
     | REACT TO expr WITH expr #reactToStatement
-    | SET lvalue TO expr #setStatement
     | identifier L_ARROW valueStatement #assignStatement
     | valueStatement #pipeStatement
     ;
 
+ifStatement: IF expr functionBlock (ELSE (ifStatement | functionBlock))?;
+
 valueStatement
     : SEND expr #sendStatement
-    | PICK identifier FROM expr #pickStatement
+    | PICK distribution FROM expr #pickStatement
     | PARSE expr AS identifier (ELSE functionBlock)? #parseStatement
     | expr #exprStatement
     ;
+
+distribution: identifier | number | embeddedJS;
 
 openBlock: L_BRACKET NL?;
 closeBlock: R_BRACKET NL?;
@@ -116,6 +122,7 @@ identifier
     | SEND   | REACT   | WITH
     | IS     | NOT     | OF
     | TRUE   | FALSE   | AND      | OR
+    | ADD    | REMOVE
     | ID // ID at the end
     ;
 

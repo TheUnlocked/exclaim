@@ -2,8 +2,8 @@ import { ErrorNode } from 'antlr4ts/tree/ErrorNode';
 import { ParseTree } from 'antlr4ts/tree/ParseTree';
 import { RuleNode } from 'antlr4ts/tree/RuleNode';
 import { TerminalNode } from 'antlr4ts/tree/TerminalNode';
-import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext, ParamContext, RestListParamContext, RestStringParamContext } from './generated/Exclaim';
-import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, Pick, Parse, ExprStatement, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression, Program } from './AST';
+import { PickStatementContext, ParseStatementContext, SendStatementContext, ReactStatementContext, ReactToStatementContext, ExprStatementContext, ExclaimImportDeclarationContext, JavascriptImportDeclarationContext, DataDeclarationContext, TempDeclarationContext, BoolLiteralContext, GroupDeclarationContext, CommandDeclarationContext, FunctionDeclarationContext, EventDeclarationContext, AssignStatementContext, SetStatementContext, ForEachStatementContext, WhileStatementContext, IfStatementContext, InvokeExprContext, CheckIsExprContext, CheckCompareExprContext, MultiplyExprContext, AddExprContext, PrefixAddExprContext, ProgramContext, FunctionBlockContext, ListContext, DictContext, IdentifierContext, StringContext, PrefixNotExprContext, OfExpressionContext, NumberContext, JsExprContext, AndOrExprContext, FailStatementContext, ParamContext, RestListParamContext, RestStringParamContext, AddToStatementContext, RemoveFromStatementContext, EmbeddedJSContext } from './generated/Exclaim';
+import { Fail, ASTNode, ASTNodeType, CommandDefinition, Declaration, DeclareVariable, EventListenerDefinition, Expression, FileImport, ForEach, FunctionDefinition, GroupableDefinition, GroupDefinition, Identifier, If, LiteralExpression, ModuleImport, ObjectKey, OfExpression, React, Send, Set, Statement, StringLiteral, ValueStatement, While, CollectionAccess, Parse, ExprStatement, IsExpression, RelationalExpression, BinaryOpExpression, UnaryOpExpression, InvokeExpression, ListLiteral, DictLiteral, NumberLiteral, TemplateStringFragment, BooleanLiteral, JavascriptExpression, Program, PickFromCollection, AddToCollection, RemoveFromCollection } from './AST';
 import { ExclaimVisitor } from './generated/ExclaimVisitor';
 import { SourceInfo } from './SourceInfo';
 import { CompilerError, ErrorType } from '../CompilerError';
@@ -233,11 +233,19 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     }
 
     visitIfStatement(ctx: IfStatementContext): If {
-        const [ifStatements, elseStatements] = ctx.functionBlock();
+        const [ifStatements, elseStatements_] = ctx.functionBlock();
+        const elseIf = ctx.ifStatement();
+        let elseStatements: Statement[] | undefined;
+        if (elseStatements_) {
+            elseStatements = this.getStatements(elseStatements_);
+        }
+        else if (elseIf) {
+            elseStatements = [elseIf.accept(this) as If];
+        }
         return new ASTNode(ASTNodeType.If, this.getSourceInfo(ctx), {
             checkExpression: ctx.expr().accept(this) as Expression,
             thenStatements: this.getStatements(ifStatements),
-            elseStatements: elseStatements ? this.getStatements(elseStatements) : undefined
+            elseStatements
         });
     }
 
@@ -248,6 +256,29 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     visitSendStatement(ctx: SendStatementContext): Send {
         return new ASTNode(ASTNodeType.Send, this.getSourceInfo(ctx), {
             message: ctx.expr().accept(this) as Expression
+        });
+    }
+
+    visitSetStatement(ctx: SetStatementContext): Set {
+        return new ASTNode(ASTNodeType.Set, this.getSourceInfo(ctx), {
+            variable: ctx.lvalue().accept(this) as Identifier | OfExpression,
+            expression: ctx.expr().accept(this) as Expression
+        });
+    }
+
+    visitAddToStatement(ctx: AddToStatementContext): AddToCollection {
+        return new ASTNode(ASTNodeType.CollectionAccess, this.getSourceInfo(ctx), {
+            variant: 'add',
+            expression: ctx.expr(0).accept(this) as Expression,
+            collection: ctx.expr(1).accept(this) as Expression
+        });
+    }
+
+    visitRemoveFromStatement(ctx: RemoveFromStatementContext): RemoveFromCollection {
+        return new ASTNode(ASTNodeType.CollectionAccess, this.getSourceInfo(ctx), {
+            variant: 'remove',
+            expression: ctx.distribution().accept(this) as Identifier | NumberLiteral | JavascriptExpression,
+            collection: ctx.expr().accept(this) as Expression
         });
     }
 
@@ -265,13 +296,6 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
-    visitSetStatement(ctx: SetStatementContext): Set {
-        return new ASTNode(ASTNodeType.Set, this.getSourceInfo(ctx), {
-            variable: ctx.lvalue().accept(this) as Identifier | OfExpression,
-            expression: ctx.expr().accept(this) as Expression
-        });
-    }
-
     visitAssignStatement(ctx: AssignStatementContext): ValueStatement {
         const statement = ctx.valueStatement().accept(this) as ValueStatement;
         statement.source = this.getSourceInfo(ctx);
@@ -279,9 +303,10 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         return statement;
     }
 
-    visitPickStatement(ctx: PickStatementContext): Pick {
-        return new ASTNode(ASTNodeType.Pick, this.getSourceInfo(ctx), {
-            distribution: ctx.identifier().text,
+    visitPickStatement(ctx: PickStatementContext): PickFromCollection {
+        return new ASTNode(ASTNodeType.CollectionAccess, this.getSourceInfo(ctx), {
+            variant: 'pick',
+            expression: ctx.distribution().accept(this) as Identifier | NumberLiteral | JavascriptExpression,
             collection: ctx.expr().accept(this) as Expression,
             assignTo: new ASTNode(ASTNodeType.Identifier, this.getSourceInfo(ctx), {
                 name: 'it',
@@ -403,7 +428,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         });
     }
 
-    visitJsExpr(ctx: JsExprContext): JavascriptExpression {
+    visitEmbeddedJS(ctx: EmbeddedJSContext): JavascriptExpression {
         const fullText = ctx.text;
         return new ASTNode(ASTNodeType.JavascriptExpression, this.getSourceInfo(ctx), {
             code: fullText.slice(1, fullText.length - 1)
@@ -456,7 +481,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
         }
 
         const rawContents = ctx.text;
-        const dedentOffset = getDedentOffset(ctx.start.charPositionInLine, rawContents.slice(1, rawContents.length - 1));
+        const dedentOffset = getDedentOffset(ctx.start.charPositionInLine + 1, rawContents.slice(1, rawContents.length - 1));
 
         let fragments = ctx.stringContent().map<TemplateStringFragment & { _fromEscapeSequence?: boolean }>(x => {
             const embedded = x.stringTemplate();

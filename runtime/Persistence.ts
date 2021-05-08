@@ -40,6 +40,10 @@ export class Persistence {
                     entry.data = newVal;
                     entry.updateCallback(entry.data);
                 }
+                else if (newVal instanceof Array) {
+                    entry.data = newVal;
+                    entry.updateCallback(entry.data);
+                }
                 else if (typeof newVal === 'object') {
                     if (updateObject(originalVal, newVal)) {
                         entry.updateCallback(entry.data);
