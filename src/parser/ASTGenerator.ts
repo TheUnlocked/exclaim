@@ -527,7 +527,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
             // We don't want to prune whitespace generated from escape sequences.
             if (x.type === 'text' && !x._fromEscapeSequence) {
                 // eslint-disable-next-line no-param-reassign
-                x.contents = x.contents.split('\n').map((x, i) => i > 0 ? x.slice(dedentOffset) : x).join('\n');
+                x.contents = x.contents.replace(/\r\n/g, '\n').split('\n').map((x, i) => i > 0 ? x.slice(dedentOffset) : x).join('\n');
             }
             return x;
         }).filter(x => x.type === 'template' || x.contents.length > 0);

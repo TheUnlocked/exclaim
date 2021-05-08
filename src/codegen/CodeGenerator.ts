@@ -3,7 +3,7 @@ import { BaseASTVisitor, ASTVisitor, DictLiteral, ASTNodeType, RawStringLiteral,
 import { sourceInfoToString } from '../parser/SourceInfo';
 import { CompilerInfo } from '../CompilerInfo';
 import { SymbolTable } from '../semantic/SymbolTable';
-import { isValidVariableName, optionToList, uniqueName, zip } from '../util';
+import { isValidVariableName, optionToList, uniqueName, uniqueNames, zip } from '../util';
 
 function produceValidVariableName(varName: string) {
     if (isValidVariableName(varName)) {
@@ -381,12 +381,22 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitRelationalExpression(ast: RelationalExpression): string {
-        const segments = [] as string[];
-        for (let i = 0; i < ast.operators.length; i++) {
-            const op = ast.operators[i] as string;
-            segments.push(`(${ast.expressions[i].accept(this)})${op}(${ast.expressions[i + 1].accept(this)})`);
+        const ops = ast.operators.map(op => {
+            switch (op) {
+                case '==': return '===';
+                default: return op;
+            }
+        });
+
+        if (ops.length === 1) {
+            return `${ast.expressions[0].accept(this)}${ops[0]}${ast.expressions[1].accept(this)}`;
         }
-        return `(${segments.join('&&')})`;
+        const exprSymbols = uniqueNames('', ast.expressions.length);
+        const segments = [] as string[];
+        for (let i = 0; i < ops.length; i++) {
+            segments.push(`(${exprSymbols[i]}${ops[i]}${exprSymbols[i + 1]})`);
+        }
+        return `((${exprSymbols.join(',')})=>${segments.join('&&')})(${ast.expressions.map(x => x.accept(this)).join(',')})`;
     }
 
     visitBinaryOpExpression(ast: BinaryOpExpression): string {
