@@ -1,6 +1,10 @@
 # Exclaim! Language
 
-Exclaim! is a domain-specific langauge for the purpose of rapid and easy development of text bots that demand a common but constrained set of behaviors for chat services such as Discord. This repository includes a compiler for Exclaim! as well as a Discord runtime.
+Exclaim! is a domain-specific langauge for the purpose of rapid and easy development of text bots that demand a common but constrained set of behaviors for chat services such as Discord. This repository includes a compiler for Exclaim! as well as a runtime library targeting Discord.
+
+**A note on terminology**
+
+The term "runtime" is used within this project to refer to what is really a runtime library. The actual "runtime," NodeJS in most cases, will be referred to by name or as being a "JavaScript runtime".
 
 ## Why Exclaim!?
 
@@ -35,16 +39,17 @@ It is also possible to integrate with Exclaim! runtimes without using the Exclai
 
 ### Things you need before you start
 
-* [NodeJS](https://nodejs.org/en/)
+* [NodeJS](https://nodejs.org/)
     * NodeJS 14 may work, but I would recommend installing version 16+ instead.
 
 #### If you want to build the compiler
 
 * Java Runtime Environment (JRE) 1.8+. JDK 1.8+ includes this.
+    * JRE 1.6+ _may_ work, but 1.8+ is recommended.
 
 ### Building
 
-If you are using a pre-bundled distribution of the compiler and runtime, you can skip this step.
+If you are using a pre-bundled distribution of the compiler and runtime, you can skip this step. Pre-bundled distributions can be found in [the releases page](https://github.com/TheUnlocked/exclaim/releases).
 
 1. Clone (or download and unzip) the git repository.
 2. Navigate to the root directory of the git repository.
@@ -133,8 +138,7 @@ The first time you run your program, it will automatically generate a `config.js
 
 ## Samples
 
-A variety of samples are included in the samples directory.
- 
+A variety of samples are included in the [samples](./samples) directory.
 
 ## Todo
 

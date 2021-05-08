@@ -1,0 +1,31 @@
+data red 0
+data green 0
+data blue 0
+
+group marbles [
+    command take [
+        color <- pick random from ["red", "green", "blue"]
+        send "You drew a {color} marble!"
+        if color == "red" [
+            set red to red + 1
+        ]
+        if color == "green" [
+            set green to green + 1
+        ]
+        if color == "blue" [
+            set blue to blue + 1
+        ]
+    ]
+
+    command red [
+        send "People have pulled a total of {red} red marbles."
+    ]
+
+    command green [
+        send "People have pulled a total of {green} green marbles."
+    ]
+
+    command blue [
+        send "People have pulled a total of {blue} blue marbles."
+    ]
+]

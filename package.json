@@ -1,4 +1,6 @@
 {
+  "name": "exclaim",
+  "version": "0.1.0",
   "sideEffects": false,
   "scripts": {
     "pre-build": "npm run antlr4",

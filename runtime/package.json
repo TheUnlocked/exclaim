@@ -3,6 +3,10 @@
         "bufferutil": "^4.0.3",
         "discord.js": "^12.5.3",
         "erlpack": "^0.1.3",
-        "utf-8-validate": "^5.0.4"
+        "utf-8-validate": "^5.0.4",
+        "write-file-atomic": "^3.0.3"
+    },
+    "devDependencies": {
+        "@types/write-file-atomic": "^3.0.1"
     }
 }

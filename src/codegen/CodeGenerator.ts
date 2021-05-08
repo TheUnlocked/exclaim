@@ -20,9 +20,7 @@ export interface CodeGeneratorOptions {
     fileImport: FileImportOption;
 }
 
-const defaultContext = {
-    message: undefined
-};
+const defaultContext = '{message:undefined,follow:Promise.resolve()}';
 
 export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<string> {
     compilerInfo: CompilerInfo;
@@ -48,7 +46,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitProgram(ast: Program): string {
         const runtimeImport = 'import $runtime from"./Runtime.js";';
-        const contextDeclaration = `const $context=${JSON.stringify(defaultContext)};`;
+        const contextDeclaration = `const $context=${defaultContext};`;
 
         const importDeclarations = [] as ASTNode[];
         const varDeclarations = [] as ASTNode[];
@@ -234,7 +232,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitReact(ast: React): string {
-        return `$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)});`;
+        return `$context.follow=$context.follow.then($runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)}));`;
     }
 
     visitFail(ast: Fail): string {
@@ -289,7 +287,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
             }
             return this.assignment(ast as ValueStatement, `await $runtime.sendMessage($context.message.channel,${ast.message.accept(this)})`);
         }
-        return `$runtime.sendMessage($context.message.channel,${ast.message.accept(this)});`;
+        return `$context.follow=$context.follow.then($runtime.sendMessage($context.message.channel,${ast.message.accept(this)}));`;
     }
 
     visitPick(ast: Pick): string {

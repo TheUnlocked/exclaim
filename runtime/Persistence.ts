@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import fsSync from 'fs';
+import writeFile from 'write-file-atomic';
 import path from 'path';
 import debounce from './debounce';
 import { updateObject } from './util';
@@ -95,7 +95,7 @@ export class Persistence {
     debouncedCommit = debounce(async () => {
         const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
         try {
-            await fs.writeFile(this.configPath, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
+            await writeFile(this.configPath, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
             this.lastEdited = Date.now();
         }
         catch (e) {
@@ -111,7 +111,7 @@ export class Persistence {
     commitNowSync(urgent = false) {
         const data = Object.fromEntries(Object.entries(this.data).map(([name, v]) => [name, v.data]));
         try {
-            fsSync.writeFileSync(this.configPath, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
+            writeFile.sync(this.configPath, JSON.stringify(data, null, 4), { encoding: 'utf-8' });
             this.lastEdited = Date.now();
         }
         catch (e) {
