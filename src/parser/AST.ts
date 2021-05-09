@@ -89,11 +89,6 @@ interface HasAction {
     statements: Statement[];
 }
 
-export interface EventListenerDefinition extends _GroupableDefinition, HasAction {
-    type: ASTNodeType.EventListenerDefinition;
-    event: string;
-}
-
 interface _FunctionLikeDefinition extends _GroupableDefinition, HasAction {
     name: Identifier;
     parameters: Identifier[];
@@ -107,6 +102,11 @@ export interface CommandDefinition extends _FunctionLikeDefinition {
 
 export interface FunctionDefinition extends _FunctionLikeDefinition {
     type: ASTNodeType.FunctionDefinition;
+    restParamVariant: 'none' | 'list';
+}
+
+export interface EventListenerDefinition extends _FunctionLikeDefinition {
+    type: ASTNodeType.EventListenerDefinition;
     restParamVariant: 'none' | 'list';
 }
 

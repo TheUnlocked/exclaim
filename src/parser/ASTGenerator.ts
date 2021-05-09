@@ -210,9 +210,20 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     }
 
     visitEventDeclaration(ctx: EventDeclarationContext): EventListenerDefinition {
+        let restParam: CommandDefinition['restParam'];
+        let restParamVariant: CommandDefinition['restParamVariant'] = 'none';
+
+        if (ctx.functionParams().restListParam()) {
+            restParamVariant = 'list';
+            restParam = ctx.functionParams().restListParam()!.accept(this) as Identifier;
+        }
+
         return new ASTNode(ASTNodeType.EventListenerDefinition, this.getSourceInfo(ctx), {
             group: this.currentGroup,
-            event: ctx.identifier().text,
+            name: ctx.identifier().accept(this) as Identifier,
+            parameters: ctx.functionParams().param().map(x => x.accept(this) as Identifier),
+            restParam,
+            restParamVariant,
             statements: this.getStatements(ctx)
         });
     }

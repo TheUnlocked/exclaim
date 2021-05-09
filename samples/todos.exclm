@@ -36,9 +36,13 @@ group clear [
 ]
 
 command recall $ [
-    checkEnoughTodos()
-    pick {it - 1} from todos
-    send it
+    if 0 < it <= length of todos [
+        pick {it - 1} from todos
+        send it
+    ]
+    else [
+        send "Todo {it} does not exist."
+    ]
 ]
 
 group recall [

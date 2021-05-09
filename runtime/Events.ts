@@ -21,7 +21,7 @@ export class Events {
         return false;
     }
 
-    dispatch(eventName: string, ...args: any[]) {
+    dispatch(eventName: string, args: any[]) {
         if (eventName in this.eventListeners) {
             for (const listener of this.eventListeners[eventName]) {
                 listener(...args);

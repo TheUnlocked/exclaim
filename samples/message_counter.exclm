@@ -1,0 +1,9 @@
+data messages 0
+
+on message [
+    set messages to messages + 1
+]
+
+command messages [
+    send "There have been {messages} messages."
+]

@@ -10,7 +10,6 @@ type ParserMapEntry = { test?: (expr: string) => string, parse?(expr: string): s
 export type ParserMap = { [type: string]: ParserMapEntry };
 
 export interface CompilerOptions {
-    events?: EventsMap;
     distributions?: DistributionsMap;
     parsers?: ParserMap;
 }
@@ -19,18 +18,14 @@ export class CompilerInfo {
     rootSymbolTable?: SymbolTable;
     symbolTables: { [blockASTNodeId: number]: SymbolTable } = {};
 
-    events: EventsMap;
     distributions: DistributionsMap;
     parsers: ParserMap;
 
     constructor(options?: CompilerOptions) {
-        this.events = options?.events ?? defaultEvents;
         this.distributions = options?.distributions ?? defaultDistributions;
         this.parsers = options?.parsers ?? defaultParsers;
     }
 }
-
-export const defaultEvents: EventsMap = {};
 
 export const defaultDistributions: DistributionsMap = {
     first: () => '0',

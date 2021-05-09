@@ -67,7 +67,7 @@ export class BindingsGenerator implements ASTListener {
         this.currentST.addField({ type: ast.variant, identifier: ast.name });
     }
 
-    private getParams(ast: CommandDefinition | FunctionDefinition) {
+    private getParams(ast: CommandDefinition | FunctionDefinition | EventListenerDefinition) {
         const params = [...ast.parameters, ...optionToList(ast.restParam)];
 
         const paramNames = params.map(x => x.name);
@@ -129,7 +129,7 @@ export class BindingsGenerator implements ASTListener {
     }
 
     enterEventListenerDefinition(ast: EventListenerDefinition) {
-        this.pushST(ast, builtins(this.info.events[ast.event]));
+        this.pushST(ast, this.getParams(ast));
     }
 
     enterForEach(ast: ForEach) {

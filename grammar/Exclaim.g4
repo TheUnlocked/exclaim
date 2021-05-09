@@ -15,7 +15,7 @@ blockDeclaration
     : GROUP identifier groupBlock #groupDeclaration
     | COMMAND identifier commandParams functionBlock #commandDeclaration
     | FUNCTION identifier functionParams functionBlock #functionDeclaration
-    | ON identifier functionBlock #eventDeclaration
+    | ON identifier functionParams functionBlock #eventDeclaration
     ;
 
 commandParams: param* (restListParam | restStringParam)?;

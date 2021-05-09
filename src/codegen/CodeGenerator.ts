@@ -208,13 +208,9 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitEventListenerDefinition(ast: EventListenerDefinition): string {
-        const statements = this.statements(ast.statements);
-        if (ast.event in this.compilerInfo.events) {
-            const params = this.compilerInfo.events[ast.event].map(produceValidVariableName).join(',');
-            return `$runtime.events.register(${JSON.stringify(ast.event)},async(${params})=>{${statements}});`;
-        }
-        const emitVarNames = 'arguments.map(x=>)';
-        return `$runtime.events.register(${JSON.stringify(ast.event)},async(...arguments)=>{${statements}});`;
+        const paramsCode = ast.parameters.map(x => x.name === '' ? 'it' : x.accept(this)).join(',');
+        const restParamCode = ast.restParamVariant === 'list' ? `,...${ast.restParam?.accept(this) ?? 'it'}` : '';
+        return `$runtime.events.register(${JSON.stringify(ast.name.name)},async(${paramsCode}${restParamCode})=>{${this.statements(ast.statements)}});`;
     }
 
     visitForEach(ast: ForEach): string {
