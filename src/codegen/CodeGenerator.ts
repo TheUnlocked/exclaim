@@ -230,7 +230,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitReact(ast: React): string {
-        return `$context.follow=$context.follow.then($runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)}));`;
+        return `$context.follow=$context.follow.then(()=>$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)}));`;
     }
 
     visitFail(ast: Fail): string {
@@ -314,7 +314,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
             }
             return this.assignment(ast as ValueStatement, `await $runtime.sendMessage($context.message.channel,${ast.message.accept(this)})`);
         }
-        return `$context.follow=$context.follow.then($runtime.sendMessage($context.message.channel,${ast.message.accept(this)}));`;
+        return `$context.follow=$context.follow.then(()=>$runtime.sendMessage($context.message.channel,${ast.message.accept(this)}));`;
     }
 
     visitCollectionAccess(ast: CollectionAccess): string {

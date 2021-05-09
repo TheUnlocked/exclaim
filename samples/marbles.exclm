@@ -9,10 +9,10 @@ group marbles [
         if color == "red" [
             set red to red + 1
         ]
-        if color == "green" [
+        else if color == "green" [
             set green to green + 1
         ]
-        if color == "blue" [
+        else if color == "blue" [
             set blue to blue + 1
         ]
     ]
