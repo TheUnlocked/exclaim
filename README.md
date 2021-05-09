@@ -4,7 +4,7 @@ Exclaim! is a domain-specific langauge for the purpose of rapid and easy develop
 
 **A note on terminology**
 
-The term "runtime" is used within this project to refer to what is really a runtime library. The actual "runtime," NodeJS in most cases, will be referred to by name or as being a "JavaScript runtime".
+The term "runtime" is used within this project to refer to what some may consider to be merely a "runtime library." The JavaScript runtime, the virtual machine that actually executes the compiled code, is NodeJS.
 
 ## Why Exclaim!?
 
@@ -168,7 +168,7 @@ A variety of samples are included in the [samples](./samples) directory.
 
 ### Design issues/questions
 
-* Weird that channel information needs to be passed to runtime for some APIs when some platforms may not have a concept of channels.
+* Weird that channel information needs to be passed to the runtime for some APIs when some platforms may not have a concept of channels.
     * Send `$context` object instead and let the runtime figure it out?
 * Some requirements are opaque to users, but matter to platforms, e.g. the idea that you need a channel to locate a message in Discord.
     * According to [Discord's developer documentation](https://discord.com/developers/docs/reference#snowflakes), snowflakes (or IDs) "are guaranteed to be unique across all of Discord." Despite this, Discord doesn't offer an API to find a message by ID in general, so you need to know the channel that a message is located in in order to fetch it. In theory, the Discord runtime could query every channel it knows about, but that sounds like a recipe for getting rate limited.

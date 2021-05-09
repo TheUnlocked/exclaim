@@ -21,6 +21,7 @@ export interface CodeGeneratorOptions {
 }
 
 const defaultContext = '{message:undefined,follow:Promise.resolve()}';
+const register = '$r';
 
 export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<string> {
     compilerInfo: CompilerInfo;
@@ -46,7 +47,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
 
     visitProgram(ast: Program): string {
         const runtimeImport = 'import $runtime from"./Runtime.js";';
-        const contextDeclaration = `const $context=${defaultContext};`;
+        const contextDeclaration = `const $context=${defaultContext};let ${register};`;
 
         const importDeclarations = [] as ASTNode[];
         const varDeclarations = [] as ASTNode[];
@@ -212,6 +213,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
             const params = this.compilerInfo.events[ast.event].map(produceValidVariableName).join(',');
             return `$runtime.events.register(${JSON.stringify(ast.event)},async(${params})=>{${statements}});`;
         }
+        const emitVarNames = 'arguments.map(x=>)';
         return `$runtime.events.register(${JSON.stringify(ast.event)},async(...arguments)=>{${statements}});`;
     }
 
@@ -326,7 +328,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         let index: string;
         if (ast.expression.type === ASTNodeType.Identifier) {
             if (ast.expression.name in this.compilerInfo.distributions) {
-                index = this.compilerInfo.distributions[ast.expression.name]('x');
+                index = this.compilerInfo.distributions[ast.expression.name](register);
             }
             else {
                 this.pushError(new CompilerError(
@@ -334,16 +336,16 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
                     ast.source,
                     `The distribution type ${ast.expression.name} is not known to the compiler. A runtime distribution will be used instead.`
                 ));
-                index = `$runtime.runDistribution('${ast.expression.name}',x)`;
+                index = `$runtime.runDistribution('${ast.expression.name}',${register})`;
             }
         }
         else {
             index = ast.expression.accept(this);
         }
         if (ast.variant === 'remove') {
-            return `(x=>x.splice(${index},1))(${ast.collection.accept(this)});${this.setIfDataOrTemp(ast.collection).emit}`;
+            return `(${register}=${ast.collection.accept(this)},${register}.splice(${index},1));${this.setIfDataOrTemp(ast.collection).emit}`;
         }
-        return this.assignment(ast, `(x=>x[${index}])(${ast.collection.accept(this)})`);
+        return this.assignment(ast, `(${register}=${ast.collection.accept(this)},${register}[${index}])`);
     }
 
     visitParse(ast: Parse): string {
@@ -389,14 +391,18 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         });
 
         if (ops.length === 1) {
-            return `${ast.expressions[0].accept(this)}${ops[0]}${ast.expressions[1].accept(this)}`;
+            return `(${ast.expressions[0].accept(this)}${ops[0]}${ast.expressions[1].accept(this)})`;
         }
-        const exprSymbols = uniqueNames('', ast.expressions.length);
         const segments = [] as string[];
-        for (let i = 0; i < ops.length; i++) {
-            segments.push(`(${exprSymbols[i]}${ops[i]}${exprSymbols[i + 1]})`);
+        segments.push(`(${ast.expressions[0].accept(this)}${ops[0]}(${register}=${ast.expressions[1].accept(this)}))`);
+        for (let i = 1; i < ops.length; i++) {
+            if (i === ops.length - 1) {
+                segments.push(`(${register}${ops[i]}${ast.expressions[i + 1].accept(this)})`);
+                break;
+            }
+            segments.push(`(${register}${ops[i]}(${register}=${ast.expressions[i + 1].accept(this)}))`);
         }
-        return `((${exprSymbols.join(',')})=>${segments.join('&&')})(${ast.expressions.map(x => x.accept(this)).join(',')})`;
+        return `(${segments.join('&&')})`;
     }
 
     visitBinaryOpExpression(ast: BinaryOpExpression): string {
