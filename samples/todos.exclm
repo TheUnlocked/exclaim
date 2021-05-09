@@ -57,7 +57,7 @@ command help [
     send "```
           !todo <message>           Adds message to the todo list.
           !recall <all|random|id>   Recalls all todos, a random todo,
-                                    or the todo with the given id
+                                    or the todo with the given id.
           !clear <all|random|id>    Like recall, but it removes the todos instead.
           !help                     Prints this help message.
           ```"
