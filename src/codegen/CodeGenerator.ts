@@ -230,7 +230,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitReact(ast: React): string {
-        return `$context.follow=$context.follow.then(()=>$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)}));`;
+        return `${this.followAction(`$runtime.reactToMessage(${ast.targetMessage?.accept(this) ?? '$context.message'},${ast.reaction.accept(this)})`)};`;
     }
 
     visitFail(ast: Fail): string {
@@ -309,8 +309,12 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         return `${shouldDeclare ? 'let ' : ''}${varName}=${exprCode};`;
     }
 
+    private followAction(code: string): string {
+        return `$context.follow=$context.follow.then(($context=>()=>${code})({...$context}))`;
+    }
+
     visitSend(ast: Send): string {
-        const sendCode = `$context.follow=$context.follow.then(()=>$runtime.sendMessage($context.message.channel,${ast.message.accept(this)}))`;
+        const sendCode = this.followAction(`$runtime.sendMessage($context.message.channel,${ast.message.accept(this)})`);
         if (ast.assignTo) {
             if (!this.inAsyncContext) {
                 throw this.REQUIRES_ASYNC_THROW;
