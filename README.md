@@ -138,6 +138,10 @@ To run compiled code, run `node my_compiled_program.mjs` in the same directory a
 
 The first time you run your program, it will automatically generate a `config.json` file and prompt you to input your bot token. Place your bot token into the `token` field in `config.json` and re-run the program.
 
+### Compile and run 2-in-one
+
+The script located at [`scripts/run_exclm.sh`](./scripts/run_exclm.sh) will take in an input Exclaim! file, compile it, and run it, assuming both the compiler and the runtime are available in the `bundle` directory.
+
 ## Samples
 
 A variety of samples are included in the [samples](./samples) directory.
