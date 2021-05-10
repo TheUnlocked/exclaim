@@ -101,7 +101,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     private notifySet(ident: Identifier) {
-        return `$runtime.notifySet('${ident.name}',${ident.accept(this)});`;
+        return `$runtime.notifySet("${ident.name}",${ident.accept(this)});`;
     }
 
     visitDeclareVariable(ast: DeclareVariable): string {
@@ -249,17 +249,19 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         if (root && root.type === ASTNodeType.Identifier) {
             const found = this.currentSymbolTable.getField(root);
             const varName = found?.identifier.accept(this);
-            value ??= varName;
             switch (found?.type) {
-                case 'data': {
+                case 'data':
+                    value ??= varName;
                     if (ast.type === ASTNodeType.OfExpression) {
                         const refChain = ast.referenceChain.map(x => x.type === ASTNodeType.Identifier ? `'${x.accept(this)}'` : x.accept(this));
                         return { problem: 'none', emit: `$runtime.persistent.setNested('${found.identifier.accept(this)}',[${refChain.join(',')}],${value});${this.notifySet(found.identifier)}` };
                     }
                     return { problem: 'none', emit: `$runtime.persistent.set('${found.identifier.accept(this)}',${value});${this.notifySet(found.identifier)}` };
-                }
                 case 'temp':
-                    return { problem: 'none', emit: `${ast.accept(this)}=${value};${this.notifySet(found.identifier)}` };
+                    if (value) {
+                        return { problem: 'none', emit: `${ast.accept(this)}=${value};${this.notifySet(found.identifier)}` };
+                    }
+                    return { problem: 'none', emit: this.notifySet(found.identifier) };
                 case 'const':
                     return { problem: 'const', emit: '' };
                 case 'function':
@@ -308,13 +310,14 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     visitSend(ast: Send): string {
+        const sendCode = `$context.follow=$context.follow.then(()=>$runtime.sendMessage($context.message.channel,${ast.message.accept(this)}))`;
         if (ast.assignTo) {
             if (!this.inAsyncContext) {
                 throw this.REQUIRES_ASYNC_THROW;
             }
-            return this.assignment(ast as ValueStatement, `await $runtime.sendMessage($context.message.channel,${ast.message.accept(this)})`);
+            return this.assignment(ast as ValueStatement, `(${sendCode},await $context.follow)`);
         }
-        return `$context.follow=$context.follow.then(()=>$runtime.sendMessage($context.message.channel,${ast.message.accept(this)}));`;
+        return `${sendCode};`;
     }
 
     visitCollectionAccess(ast: CollectionAccess): string {

@@ -1,0 +1,11 @@
+temp sent []
+
+command ping [
+    msg <- send "Pong!"
+    add msg to sent
+]
+
+command sent [
+    msg <- send {sent.map(x => x.id).join(', ')}
+    add msg to sent
+]
