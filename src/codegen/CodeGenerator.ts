@@ -337,6 +337,10 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         }
         else {
             index = ast.expression.accept(this);
+            if (ast.variant === 'remove') {
+                return `${ast.collection.accept(this)}.splice(${index},1);${this.setIfDataOrTemp(ast.collection).emit}`;
+            }
+            return this.assignment(ast, `${ast.collection.accept(this)}[${index}]`);
         }
         if (ast.variant === 'remove') {
             return `(${register}=${ast.collection.accept(this)},${register}.splice(${index},1));${this.setIfDataOrTemp(ast.collection).emit}`;
