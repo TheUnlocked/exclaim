@@ -1,4 +1,4 @@
-
+-- NOTE: Prefix is ".", not "!"
 temp prefix "."
 
 function randRange $a $b [
