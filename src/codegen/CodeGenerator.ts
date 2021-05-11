@@ -310,7 +310,8 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
     }
 
     private followAction(code: string): string {
-        return `$context.follow=$context.follow.then(($context=>async()=>${code})({...$context}))`;
+        // return `$context.follow=$context.follow.finally(($context=>async()=>${code})({...$context}))`;
+        return `$context.follow=${code}`;
     }
 
     visitSend(ast: Send): string {

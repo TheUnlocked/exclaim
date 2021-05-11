@@ -105,8 +105,12 @@ export class DiscordRuntime implements IRuntime<Message, Channel, EmojiResolvabl
     }
 
     async sendMessage(channel: Channel, message: any) {
+        const messageStr = `${message}`;
+        if (messageStr === '') {
+            throw new Error('Cannot send an empty message.');
+        }
         if (channel instanceof TextChannel || channel instanceof DMChannel) {
-            return channel.send(`${message}`);
+            return channel.send(messageStr);
         }
         throw new Error(`Failed to send message to channel ${channel.id}.`);
     }
