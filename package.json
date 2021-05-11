@@ -15,7 +15,7 @@
     "lint": "eslint -c .eslintrc --ext .ts src test runtime/*.ts",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc --noEmit",
-    "antlr4": "rimraf src/parser/generated && antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4",
+    "antlr4": "rimraf src/parser/generated && antlr4ts -visitor -o src/parser/generated grammar/Exclaim.g4 grammar/ExclaimLexer.g4 -Xexact-output-dir",
     "install:runtime": "cd runtime && npm install"
   },
   "devDependencies": {

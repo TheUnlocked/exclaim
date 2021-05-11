@@ -7,6 +7,7 @@
         "write-file-atomic": "^3.0.3"
     },
     "devDependencies": {
-        "@types/write-file-atomic": "^3.0.1"
+        "@types/write-file-atomic": "^3.0.1",
+        "null-loader": "^4.0.1"
     }
 }
