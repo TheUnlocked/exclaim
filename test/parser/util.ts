@@ -1,8 +1,8 @@
 import { CharStreams, CommonTokenStream, ConsoleErrorListener, RuleContext } from 'antlr4ts';
-import { CompilerError, ErrorType } from '../src/CompilerError';
-import { ASTGenerator, ASTGeneratorOptions } from '../src/parser/ASTGenerator';
-import { Exclaim } from '../src/parser/generated/Exclaim';
-import { ExclaimLexer } from '../src/parser/generated/ExclaimLexer';
+import { CompilerError, ErrorType } from '../../src/CompilerError';
+import { ASTGenerator, ASTGeneratorOptions } from '../../src/parser/ASTGenerator';
+import { Exclaim } from '../../src/parser/generated/Exclaim';
+import { ExclaimLexer } from '../../src/parser/generated/ExclaimLexer';
 
 type RuleNames = { [RuleName in keyof Exclaim]: Exclaim[RuleName] extends () => RuleContext ? RuleName : never }[keyof Exclaim];
 

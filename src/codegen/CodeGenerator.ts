@@ -394,6 +394,7 @@ export class CodeGenerator extends BaseASTVisitor<string> implements ASTVisitor<
         const ops = ast.operators.map(op => {
             switch (op) {
                 case '==': return '===';
+                case '!=': return '!==';
                 default: return op;
             }
         });
