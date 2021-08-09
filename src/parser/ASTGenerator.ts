@@ -409,7 +409,7 @@ export class ASTGenerator implements ExclaimVisitor<ASTNode> {
     }
 
     visitOfExpression(ctx: OfExpressionContext): OfExpression {
-        const referenceChain = ctx.objectKey().map(x => x.accept(this) as ObjectKey);
+        const referenceChain = ctx.objectKey().map(x => x.accept(this) as ObjectKey).reverse();
         return new ASTNode(ASTNodeType.OfExpression, this.getSourceInfo(ctx), {
             root: ctx.term().accept(this) as Expression,
             referenceChain
